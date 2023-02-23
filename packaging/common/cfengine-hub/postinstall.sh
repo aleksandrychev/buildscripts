@@ -416,6 +416,17 @@ init_postgres_dir()
   chown cfpostgres:cfpostgres /var/log/postgresql.log
   chmod 600 /var/log/postgresql.log
 
+  # revoke unnecessary permissions from the root database user
+  su cfpostgres -c "$PREFIX/bin/psql -d postgres -c 'ALTER user root NOSUPERUSER'"
+  su cfpostgres -c "$PREFIX/bin/psql -d cfdb -c '
+    GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO root;
+    GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO root;
+    '"
+  su cfpostgres -c "$PREFIX/bin/psql -d cfsettings -c '
+    GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO root;
+    GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO root;
+  '"
+
   if ! is_upgrade; then
     # Not an upgrade, just use the recommended or default file (see generate_new_postgres_conf())
     cp -a "$new_pgconfig_file" $PREFIX/state/pg/data/postgresql.conf
