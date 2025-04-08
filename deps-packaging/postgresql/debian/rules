@@ -1,0 +1,53 @@
+#!/usr/bin/make -f
+
+PREFIX=$(BUILDPREFIX)
+
+clean:
+	dh_testdir
+	dh_testroot
+
+	dh_clean
+
+build: build-stamp
+build-stamp:
+	dh_testdir
+
+	LD_LIBRARY_PATH=$(PREFIX)/lib CPPFLAGS=-I$(PREFIX)/include ./configure --prefix=$(PREFIX) --without-zlib --without-readline --with-openssl --without-icu
+# force generated-headers in src/backend because the headers are needed for other things and somehow dependencies don't work properly
+	make -C ./src/backend generated-headers
+	make
+	make -C contrib
+	touch build-stamp
+
+install: build
+	dh_testdir
+	dh_testroot
+	dh_clean -k
+	dh_installdirs
+	make install DESTDIR=$(CURDIR)/debian/tmp
+	make -C contrib install DESTDIR=$(CURDIR)/debian/tmp
+	rm -f $(CURDIR)/debian/tmp$(PREFIX)/share/postgresql/postgresl.conf.cfengine
+	patch -d $(CURDIR)/debian/tmp$(PREFIX)/share/postgresql/ -o postgresql.conf.cfengine < $(CURDIR)/postgresql.conf.cfengine.patch
+	patch $(CURDIR)/debian/tmp$(PREFIX)/share/postgresql/postgresql.conf.sample $(CURDIR)/postgresql.conf.sample.patch
+	chmod --reference $(CURDIR)/debian/tmp$(PREFIX)/share/postgresql/postgresql.conf.sample $(CURDIR)/debian/tmp$(PREFIX)/share/postgresql/postgresql.conf.cfengine
+	chown --reference $(CURDIR)/debian/tmp$(PREFIX)/share/postgresql/postgresql.conf.sample $(CURDIR)/debian/tmp$(PREFIX)/share/postgresql/postgresql.conf.cfengine
+	patch $(CURDIR)/debian/tmp$(PREFIX)/share/postgresql/pg_hba.conf.sample $(CURDIR)/pg_hba.conf.sample.patch
+	rm -f $(CURDIR)/debian/tmp$(PREFIX)/lib/*.a
+
+binary-indep: build install
+
+binary-arch: build install
+	dh_testdir
+	dh_testroot
+	dh_install --sourcedir=debian/tmp --fail-missing
+	dh_link
+	dh_strip
+	dh_compress
+	dh_fixperms
+	dh_installdeb
+	dh_gencontrol
+	dh_md5sums
+	dh_builddeb
+
+binary: binary-indep binary-arch
+.PHONY: build clean binary-indep binary-arch binary install configure

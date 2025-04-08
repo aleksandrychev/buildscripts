@@ -12,8 +12,8 @@ build: build-stamp
 build-stamp:
 	dh_testdir
 
-	./configure --prefix=$(PREFIX) --with-libpcre=$(PREFIX) --with-openssl=$(PREFIX) --without-iconv --with-gitconfig=$(PREFIX) --with-gitattributes=$(PREFIX) --with-zlib=$(PREFIX) --with-curl=$(PREFIX) --libexecdir=$(PREFIX)/lib
-	make
+	./configure --prefix=$(PREFIX) --with-openssl=$(PREFIX) --without-iconv --with-gitconfig=$(PREFIX)/config/gitconfig --with-gitattributes=$(PREFIX)/config/gitattributes --with-zlib=$(PREFIX) --with-curl=$(PREFIX) --libexecdir=$(PREFIX)/lib
+	make CURL_LDFLAGS="-lcurl"
 
 	touch build-stamp
 
@@ -27,6 +27,7 @@ install: build
 
 	rm -rf $(CURDIR)/debian/tmp$(PREFIX)/lib/perl*
 	rm -rf $(CURDIR)/debian/tmp$(PREFIX)/lib/python*
+	rm -rf $(CURDIR)/debian/tmp$(PREFIX)/bin/scalar
 
 binary-indep: build install
 

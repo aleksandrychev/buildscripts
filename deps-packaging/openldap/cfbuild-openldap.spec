@@ -1,11 +1,14 @@
+%define openldap_version 2.6.9
+
 Summary: CFEngine Build Automation -- openldap
 Name: cfbuild-openldap
 Version: %{version}
 Release: 1
-Source0: openldap-2.4.45.tgz
+Source0: openldap-%{openldap_version}.tgz
+Patch0:  no_Sockaddr_redefine.patch
 License: MIT
 Group: Other
-Url: http://example.com/
+Url: https://cfengine.com
 BuildRoot: %{_topdir}/BUILD/%{name}-%{version}-%{release}-buildroot
 
 AutoReqProv: no
@@ -14,9 +17,16 @@ AutoReqProv: no
 
 %prep
 mkdir -p %{_builddir}
-%setup -q -n openldap-2.4.45
+%setup -q -n openldap-%{openldap_version}
 
+%patch0 -p0
+
+# we don't bundle OpenSSL on RHEL 8 (and newer in the future)
+%if %{?rhel}%{!?rhel:0} > 7
+CPPFLAGS=-I%{buildprefix}/include:/usr/include
+%else
 CPPFLAGS=-I%{buildprefix}/include
+%endif
 
 #
 # glibc-2.8 errorneously hides peercred(3) under #ifdef __USE_GNU.
@@ -55,6 +65,7 @@ $MAKE -C libraries install DESTDIR=${RPM_BUILD_ROOT}
 rm -rf ${RPM_BUILD_ROOT}%{prefix}/etc
 rm -f ${RPM_BUILD_ROOT}%{prefix}/lib/*.a
 rm -f ${RPM_BUILD_ROOT}%{prefix}/lib/*.la
+rm -f ${RPM_BUILD_ROOT}%{prefix}/lib/pkgconfig/*.pc
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -85,3 +96,7 @@ CFEngine Build Automation -- openldap -- development files
 %{prefix}/lib/*.so
 
 %changelog
+
+
+
+

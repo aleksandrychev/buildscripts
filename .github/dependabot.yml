@@ -1,0 +1,6 @@
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /packaging/cfengine-nova-hub/
+    schedule:
+      interval: "daily"

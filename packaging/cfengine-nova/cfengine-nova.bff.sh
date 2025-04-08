@@ -5,14 +5,35 @@ set -e
 export PATH=$PATH:/usr/local/bin
 VERSION=$1
 
-# Squash version number into AIX format:
-# * delete all non-dot-or-digit symbols
-# * delete third dot and everything after it
-VERSION=$(echo $VERSION | sed -e 's/[^0-9.]//g;s/^\([0-9]*\.[0-9]*\.[0-9]*\).*/\1/')
+# --=== Convert version number into AIX format ===--
+# Split version into parts:
+# * first and Second parts together (They are called Major.Minor in Linux or Version.Release in AIX)
+# * third part (Patch or Modification)
+# * forth part (Build or FixLevel)
+VER12=$(echo $VERSION | cut -d. -f1-2)
+VER3=$(echo $VERSION | cut -d. -f3)
+VER4=$(echo $VERSION | cut -d. -f4)
+# In third field: change 'a' to '88', 'b' to '99', delete leading zeroes if followed by a number
+VER3=$(echo $VER3 | sed -e 's/a/88/;s/b/99/;s/^0\(.\)/\1/')
+# If third field contains '-' (happens during release builds) - remove it, adding stuff after dash to the beginning of 4th field.
+# i.e. from $VER3=1-2 $VER4=3 go to $VER3=1 $VER4=23
+# Note that currently, when third field contains '-', 4th field is empty
+if echo $VER3 | grep - >/dev/null; then
+    VER4="$(echo $VER3 | cut -d- -f2)$VER4"
+    VER3="$(echo $VER3 | cut -d- -f1)"
+fi
+# In 4th field: delete all non-numeric characters, delete leading zeroes if followed by a number, limit length to 4
+VER4=$(echo $VER4 | sed -e 's/[^0-9]//g;s/^0\(.\)/\1/;s/^\(....\).*/\1/')
+# If 4th field is empty, set it to 0
+test -z "$VER4" && VER4=0
+# Build resulted version number
+VERSION="$VER12.$VER3.$VER4"
 
 BASEDIR=$2
 LPPBASE=$2/..
 P="$BASEDIR/buildscripts/packaging/cfengine-nova"
+
+PREFIX="$3"
 
 # Clean up old build artifacts.
 for i in bff lpp out
@@ -59,7 +80,7 @@ PRE_RM=$LPPBASE/lppdir/lpp/cfengine-nova-$VERSION/.info/cfengine.cfengine-nova.p
 $P/../common/produce-script cfengine-nova preinstall bff > $PRE_RM
 
 # Create the info file
-env LD_LIBRARY_PATH=$LPPBASE/lppdir/lpp/cfengine-nova-$VERSION/var/cfengine/lib CFENGINE_TEST_OVERRIDE_EXTENSION_LIBRARY_DIR=$LPPBASE/lppdir/lpp/cfengine-nova-$VERSION/var/cfengine/lib $LPPBASE/lppdir/lpp/cfengine-nova-$VERSION/var/cfengine/bin/cf-agent -V > $LPPBASE/lppdir/lpp/cfengine-nova-$VERSION/.info/cfengine.cfengine-nova.copyright
+env LD_LIBRARY_PATH="$LPPBASE/lppdir/lpp/cfengine-nova-$VERSION$PREFIX/lib" CFENGINE_TEST_OVERRIDE_EXTENSION_LIBRARY_DIR="$LPPBASE/lppdir/lpp/cfengine-nova-$VERSION$PREFIX/lib" "$LPPBASE/lppdir/lpp/cfengine-nova-$VERSION$PREFIX/bin/cf-agent" -V > $LPPBASE/lppdir/lpp/cfengine-nova-$VERSION/.info/cfengine.cfengine-nova.copyright
 
 # Detect build machine versions of important libraries so we can compare with
 # the install machine.
@@ -69,7 +90,7 @@ LIBC_VERSION=`lslpp -l bos.rte.libc | grep bos.rte.libc | head -n1 | sed -e 's/.
 #Create the lpp_name file
 cat >  $LPPBASE/lppdir/lpp/cfengine-nova-$VERSION/lpp_name << EOF; 
 4 R I cfengine.cfengine-nova {
-cfengine.cfengine-nova $VERSION.0 01 N U en_US Cfengine Nova, Data Center Automation
+cfengine.cfengine-nova $VERSION 01 N U en_US Cfengine Nova, Data Center Automation
 [
 *prereq bos.rte.libpthreads $PTHREAD_VERSION
 *prereq bos.rte.libc $LIBC_VERSION
@@ -90,6 +111,11 @@ sudo chown -hR root:system $LPPBASE/lppdir/lpp/cfengine-nova-$VERSION
 
 # Make the LPP
 cd $LPPBASE/lppdir/lpp/cfengine-nova-$VERSION
- 
+
 # sometimes the following command needs to be done twice
-sudo mklpp || sudo mklpp
+sudo -E mklpp || sudo -E mklpp
+
+# Remove extra 'cfengine.' from filename
+cd $HOME/lppdir/out/
+NEW_NAME="$(echo *.bff | sed 's/cfengine.cfengine/cfengine/')"
+sudo mv *.bff "$NEW_NAME"

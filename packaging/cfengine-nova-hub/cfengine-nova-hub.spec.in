@@ -5,16 +5,55 @@
 Summary: The CFEngine Configuration System
 Name: cfengine-nova-hub
 Version: @@VERSION@@
-Release: @@RELEASE@@
-Vendor: CFEngine AS
+# {?dist} adds a dot-separated OS codename (like .el6 or .fc30)
+Release: @@RELEASE@@%{?dist}
+Vendor: Northern.tech AS
 License: COSL
 Group: Applications/System
-URL: http://cfengine.com/
+Url: https://cfengine.com
 BuildRoot: %{_topdir}/%{name}-%{version}-%{release}-buildroot
-Obsoletes: cfengine3, cfengine-community
-Requires: coreutils gzip
+Obsoletes: cfengine3 < @@VERSION@@, cf-community < @@VERSION@@
+Requires: coreutils
+# "Recommends" is only supported on RHEL 8+
+%if %{?rhel}%{!?rhel:0} >= 8
+Recommends: gzip
+%endif
 Requires(pre): /usr/sbin/useradd, /usr/sbin/userdel, /usr/bin/getent
 Requires(post): /usr/sbin/usermod, /bin/sed
+
+# we require selinux-policy package version that matches or exceeds our build system version
+# this guarantees that our compiled selinux policy will work.
+%if %{?rhel}%{!?rhel:0} >= 8
+Requires: selinux-policy >= @@SELINUX_POLICY_VERSION@@
+%endif
+
+# we don't bundle OpenSSL on RHEL 8 (and newer in the future)
+%if %{?rhel}%{!?rhel:0} == 8
+Requires: libssl.so.1.1()(64bit) libssl.so.1.1(OPENSSL_1_1_0)(64bit) libssl.so.1.1(OPENSSL_1_1_1)(64bit)
+Requires: libcrypto.so.1.1()(64bit) libcrypto.so.1.1(OPENSSL_1_1_0)(64bit)
+%endif
+
+%if %{?rhel}%{!?rhel:0} > 8
+Requires: libcrypto.so.3()(64bit) libcrypto.so.3(OPENSSL_3.0.0)(64bit) libcrypto.so.3(OPENSSL_3.0.1)(64bit)
+Requires: libssl.so.3()(64bit) libssl.so.3(OPENSSL_3.0.0)(64bit)
+%endif
+
+# cfbs/Build requires Python 3.5+ (not available on RHEL 6)
+%if %{?rhel}%{!?rhel:0} == 7
+Requires: python3 >= 3.5
+%endif
+# on RHEL 8 and newer, we can use weak dependencies
+# and we require python3-rpm-macros so that the shebang in cfbs can be fixed with platform-python path
+%if %{?rhel}%{!?rhel:0} > 7
+Recommends: python3 >= 3.5
+%endif
+
+# on rhel-8 only, we need python3-rpm-macros to fix the shebang in /var/cfengine/bin/cfbs
+%if %{?rhel}%{!?rhel:0} == 8
+BuildRequires: python3-rpm-macros
+BuildRequires: platform-python-devel
+%endif
+
 AutoReqProv: no
 
 %if %{?with_debugsym}%{!?with_debugsym:0}
@@ -34,6 +73,13 @@ mkdir -p $RPM_BUILD_ROOT%{prefix}
 cp -a %{prefix}/* $RPM_BUILD_ROOT%{prefix}
 cp -a %{_basedir}/cfengine/dist/* $RPM_BUILD_ROOT
 
+# ENT-11901
+# For el9+ we started seeing issues from other packages not expecting init scripts
+%if %{?rhel}%{!?rhel:0} >= 9
+rm -f $RPM_BUILD_ROOT/etc/sysconfig/cfengine3
+rm -f $RPM_BUILD_ROOT/etc/init.d/cfengine3
+rm -f $RPM_BUILD_ROOT/etc/profile.d/cfengine.sh
+%endif
 # Remove useless stuff
 
 rm -f $RPM_BUILD_ROOT%{prefix}/lib/libpromises.la
@@ -41,6 +87,17 @@ rm -f $RPM_BUILD_ROOT%{prefix}/lib/libpromises.so
 rm -f $RPM_BUILD_ROOT%{prefix}/lib/cfengine-enterprise.la
 rm -f $RPM_BUILD_ROOT%{prefix}/lib/cfengine-report-collect.la
 rm -f $RPM_BUILD_ROOT%{prefix}/bin/getfacl
+
+# Remove ssl things we don't need
+rm -f %{prefix}/ssl/misc/CA.pl
+rm -f %{prefix}/ssl/misc/tsget
+rm -f %{prefix}/ssl/openssl.cnf.dist
+rm -f %{prefix}/ssl/misc/tsget.pl
+
+# Add an openssl symlink if openssl binary doesn't exist
+if ! [ -f $RPM_BUILD_ROOT%{prefix}/bin/openssl ]; then
+  ln -s `which openssl` $RPM_BUILD_ROOT%{prefix}/bin/openssl
+fi
 
 # Hub does not need cf-upgrade, it is only present in host packages
 rm -f $RPM_BUILD_ROOT%{prefix}/bin/cf-upgrade
@@ -52,9 +109,6 @@ rm -f $RPM_BUILD_ROOT%{prefix}/lib/php/cfengine-enterprise-api.la
 
 cp -R %{_basedir}/mission-portal $RPM_BUILD_ROOT%prefix/share/GUI
 
-rm -f $RPM_BUILD_ROOT%prefix/share/GUI/runalerts.php
-cp -v %{_basedir}/mission-portal/runalerts.php $RPM_BUILD_ROOT%prefix/bin/runalerts.php
-
 cp -vR %{_basedir}/mission-portal/Apache-htaccess $RPM_BUILD_ROOT%prefix/share/GUI/htaccess
 mkdir -p $RPM_BUILD_ROOT%prefix/share/GUI/api
 cp -R %{_basedir}/nova/api/http/* $RPM_BUILD_ROOT%prefix/share/GUI/api
@@ -62,10 +116,13 @@ chmod 700 $RPM_BUILD_ROOT%prefix/share/GUI/api/dc-scripts/*.sh
 cp -R %{_basedir}/nova/api/http/.htaccess $RPM_BUILD_ROOT%prefix/share/GUI/api
 cp -R %{_basedir}/enterprise/misc/solaris_admin_files $RPM_BUILD_ROOT%prefix/share
 rm -rf $RPM_BUILD_ROOT%prefix/share/GUI/tests
+rm -rf $RPM_BUILD_ROOT%prefix/share/GUI/api/tests
+rm -rf $RPM_BUILD_ROOT%prefix/share/GUI/ldap/tests
 rm -rf $RPM_BUILD_ROOT%prefix/share/GUI/application/controllers/testing.php
 rm -rf $RPM_BUILD_ROOT%prefix/share/GUI/unittest_index.php
 rm -rf $RPM_BUILD_ROOT%prefix/share/GUI/unit_test.php
 
+rm -rf $RPM_BUILD_ROOT%prefix/share/GUI/secrets.txt
 
 rm -rf $RPM_BUILD_ROOT%prefix/httpd/build
 rm -rf $RPM_BUILD_ROOT%prefix/httpd/build
@@ -78,27 +135,15 @@ rm -rf $RPM_BUILD_ROOT%prefix/bin/apu-1-config
 
 # Change development mode in MP to production mode and generate a session key
 # Also change the client secret for Oauth2 api
-sed "s/define('ENVIRONMENT', 'development')/define('ENVIRONMENT','production')/g" $RPM_BUILD_ROOT%prefix/share/GUI/index.php > $RPM_BUILD_ROOT%prefix/share/GUI/index.php.tmp
+sed "s/define('ENVIRONMENT', 'development')/define('ENVIRONMENT','production')/g" $RPM_BUILD_ROOT%prefix/share/GUI/public/index.php > $RPM_BUILD_ROOT%prefix/share/GUI/public/index.php.tmp
 
-mv $RPM_BUILD_ROOT%prefix/share/GUI/index.php.tmp $RPM_BUILD_ROOT%prefix/share/GUI/index.php
-rm -f $RPM_BUILD_ROOT%prefix/share/GUI/index.php.tmp
+mv $RPM_BUILD_ROOT%prefix/share/GUI/public/index.php.tmp $RPM_BUILD_ROOT%prefix/share/GUI/public/index.php
+rm -f $RPM_BUILD_ROOT%prefix/share/GUI/public/index.php.tmp
 
-find $RPM_BUILD_ROOT%prefix/share/GUI -type f -exec sed -i 's/cfapi_log/syslog/' {} \;
 # NovaBase
 mkdir -p $RPM_BUILD_ROOT%prefix/share/NovaBase
 cp -R $RPM_BUILD_ROOT%prefix/masterfiles $RPM_BUILD_ROOT%prefix/share/NovaBase/masterfiles
 rm -rf $RPM_BUILD_ROOT%prefix/masterfiles
-cp -R $RPM_BUILD_ROOT%prefix/modules $RPM_BUILD_ROOT%prefix/share/NovaBase/modules
-rm -rf $RPM_BUILD_ROOT%prefix/modules/*
-
-#Design center
-mkdir -p ${RPM_BUILD_ROOT}%prefix/design-center
-cp -R $RPM_BUILD_ROOT/sketches/* $RPM_BUILD_ROOT%prefix/share/NovaBase/sketches
-rm -rf $RPM_BUILD_ROOT/sketches
-cp -R $RPM_BUILD_ROOT/tools/* $RPM_BUILD_ROOT%prefix/design-center
-rm -rf $RPM_BUILD_ROOT/tools
-
-
 
 
 if [ -f %{prefix}/include/sqlite3.h ]; then
@@ -110,9 +155,29 @@ mkdir -p $RPM_BUILD_ROOT%prefix/share/db
 cp %{_basedir}/nova/db/schema.sql $RPM_BUILD_ROOT%prefix/share/db/
 cp %{_basedir}/nova/db/schema_settings.sql $RPM_BUILD_ROOT%prefix/share/db/
 cp %{_basedir}/nova/db/ootb_settings.sql $RPM_BUILD_ROOT%prefix/share/db/
+cp %{_basedir}/nova/db/ootb_import.sql $RPM_BUILD_ROOT%prefix/share/db/
+mkdir -p $RPM_BUILD_ROOT/var/log/
+touch $RPM_BUILD_ROOT/var/log/postgresql.log
 
+# RHEL 6 doesn't have Python 3 so no cfbs there.
+%if %{?rhel}%{!?rhel:0} >= 7
+# Make sure cfbs is available and in place
+mkdir -p $RPM_BUILD_ROOT/tmp/cfbs_root
+pip3 install --root $RPM_BUILD_ROOT/tmp/cfbs_root -r %{_basedir}/buildscripts/packaging/cfengine-nova-hub/requirements.txt
+mkdir -p $RPM_BUILD_ROOT%{prefix}/lib/python
+mv $RPM_BUILD_ROOT/tmp/cfbs_root/usr/lib/python*/site-packages/cfbs $RPM_BUILD_ROOT%prefix/lib/python
+mv $RPM_BUILD_ROOT/tmp/cfbs_root/usr/bin/cfbs $RPM_BUILD_ROOT%prefix/bin/
+sed -i "/^from cfbs.*/i sys.path.append(\"%prefix/lib/python\")" $RPM_BUILD_ROOT%prefix/bin/cfbs
+rm -rf $RPM_BUILD_ROOT/tmp/cfbs_root
+# only on rhel-8, which provides platform-python, do we need to fix the shebang in cfbs, this requires python3-rpm-macros and platform-python-devel packages to be installed on the build machine.
+%if %{?rhel}%{!?rhel:0} == 8
+%py3_shebang_fix $RPM_BUILD_ROOT%prefix/bin/cfbs
+%endif
+%endif
 
-
+# Add cf-enterprise-support to share
+cp %{_basedir}/nova/misc/cf-support-nova-hub.sh $RPM_BUILD_ROOT%prefix/share/
+chmod 755 $RPM_BUILD_ROOT%prefix/share/cf-support-nova-hub.sh
 %clean
 #rm -rf $RPM_BUILD_ROOT
 
@@ -145,35 +210,37 @@ exit 0
 %dir %prefix
 %dir %prefix/bin
 %prefix/bin/cf-agent
+%prefix/bin/cf-check
 %prefix/bin/cf-execd
 %prefix/bin/cf-key
 %prefix/bin/cf-monitord
 %prefix/bin/cf-net
 %prefix/bin/cf-promises
 %prefix/bin/cf-runagent
+%prefix/bin/cf-secret
 %prefix/bin/cf-serverd
+%prefix/bin/cf-support
 # Nova-only binaries
 %prefix/bin/cf-hub
-%prefix/bin/cf-consumer
-%prefix/bin/runalerts.php
+%prefix/bin/cf-reactor
+
+# Only verify owner group mode maj min symlink
+# Don't verify md5, size, mtime
 #rsync
 %prefix/bin/rsync
 # init.d script enterprise part
 %{prefix}/bin/cfengine3-nova-hub-init-d.sh
-# OpenSSL tools
+
+# OpenSSL tools (we don't bundle OpenSSL on RHEL 8)
+# Note that prefix/bin/openssl is outside of `if`, since
+# on RHEL8 it's a symlink to a system-wide openssl binary
 %{prefix}/bin/openssl
+%if %{?rhel}%{!?rhel:0} <= 7
 %dir %{prefix}/ssl
 %{prefix}/ssl/openssl.cnf
-%dir %{prefix}/ssl/certs
-%dir %{prefix}/ssl/private
-%dir %{prefix}/ssl/misc
-%{prefix}/ssl/misc/CA.pl
-%{prefix}/ssl/misc/CA.sh
-%{prefix}/ssl/misc/c_hash
-%{prefix}/ssl/misc/c_info
-%{prefix}/ssl/misc/c_issuer
-%{prefix}/ssl/misc/c_name
-%{prefix}/ssl/misc/tsget
+%{prefix}/ssl/ct_log_list.cnf
+%{prefix}/ssl/ct_log_list.cnf.dist
+%endif
 
 %prefix/bin/git
 %prefix/bin/gitk
@@ -186,49 +253,52 @@ exit 0
 #postgresql binaries
 %{prefix}/bin/clusterdb
 %{prefix}/bin/createdb
-%{prefix}/bin/createlang
 %{prefix}/bin/createuser
 %{prefix}/bin/dropdb
-%{prefix}/bin/droplang
 %{prefix}/bin/dropuser
+%{prefix}/bin/initdb
+%{prefix}/bin/oid2name
+%{prefix}/bin/pg_amcheck
+%{prefix}/bin/pg_archivecleanup
 %{prefix}/bin/pg_basebackup
+%{prefix}/bin/pgbench
+%{prefix}/bin/pg_checksums
+%{prefix}/bin/pg_combinebackup
 %{prefix}/bin/pg_config
+%{prefix}/bin/pg_controldata
+%{prefix}/bin/pg_createsubscriber
+%{prefix}/bin/pg_ctl
 %{prefix}/bin/pg_dump
 %{prefix}/bin/pg_dumpall
 %{prefix}/bin/pg_isready
-%{prefix}/bin/pg_receivexlog
+%{prefix}/bin/pg_receivewal
 %{prefix}/bin/pg_recvlogical
+%{prefix}/bin/pg_resetwal
 %{prefix}/bin/pg_restore
 %{prefix}/bin/pg_rewind
+%{prefix}/bin/pg_test_fsync
+%{prefix}/bin/pg_test_timing
+%{prefix}/bin/pg_upgrade
+%{prefix}/bin/pg_verifybackup
+%{prefix}/bin/pg_waldump
+%{prefix}/bin/pg_walsummary
+%{prefix}/bin/postgres
 %{prefix}/bin/psql
 %{prefix}/bin/reindexdb
 %{prefix}/bin/vacuumdb
-#postgresql server
-%{prefix}/bin/initdb
-%{prefix}/bin/pg_controldata
-%{prefix}/bin/pg_ctl
-%{prefix}/bin/pg_resetxlog
-%{prefix}/bin/postgres
-%{prefix}/bin/postmaster
-%{prefix}/bin/pg_test_timing
-%{prefix}/bin/pg_standby
-%{prefix}/bin/pg_archivecleanup
-%{prefix}/bin/oid2name
-%{prefix}/bin/pg_upgrade
-%{prefix}/bin/pg_xlogdump
-%{prefix}/bin/pgbench
 %{prefix}/bin/vacuumlo
-%{prefix}/bin/pg_test_fsync
-#redis server
-%{prefix}/bin/redis-cli
-%{prefix}/bin/redis-server
-%{prefix}/bin/redis-check-aof
-%{prefix}/bin/redis-benchmark
 # LMDB
 %prefix/bin/lmdump
 %prefix/bin/lmmgr
 %prefix/bin/mdb_copy
 %prefix/bin/mdb_stat
+%prefix/bin/mdb_dump
+%prefix/bin/mdb_load
+# diffutils
+%prefix/bin/diff
+%prefix/bin/cmp
+%prefix/bin/sdiff
+%prefix/bin/diff3
 # Auxiliary programs
 %prefix/bin/rpmvercmp
 #libexec of git
@@ -240,6 +310,7 @@ exit 0
 %prefix/lib/lib*.so*
 %prefix/lib/cfengine-enterprise.so
 %prefix/lib/cfengine-report-collect.so
+
 # PHP modules
 %prefix/lib/php
 #libs needed by apache ldapmodules
@@ -247,36 +318,57 @@ exit 0
 #libs of postgres
 %{prefix}/lib/postgresql/*
 
+# Python stuff (bindings + cfbs)
+%dir %prefix/lib/python
+%prefix/lib/python/*
+%if %{?rhel}%{!?rhel:0} >= 7
+%attr(755,root,root) %prefix/bin/cfbs
+%endif
+
 # Initscript, other configuration
 %defattr(755,root,root,755)
+# ENT-11901
+# For el9+ we started seeing issues from other packages not expecting init scripts
+%if %{?rhel}%{!?rhel:0} < 9
 /etc/init.d/cfengine3
 /etc/profile.d/cfengine.sh
 %attr(644,root,root) /etc/sysconfig/cfengine3
+%endif
 
 # Systemd units
 %defattr(644,root,root,755)
 /usr/lib/systemd/system/cfengine3.service
+/usr/lib/systemd/system/cf-php-fpm.service
 /usr/lib/systemd/system/cf-apache.service
-/usr/lib/systemd/system/cf-consumer.service
 /usr/lib/systemd/system/cf-execd.service
 /usr/lib/systemd/system/cf-hub.service
+/usr/lib/systemd/system/cf-reactor.service
 /usr/lib/systemd/system/cf-monitord.service
 /usr/lib/systemd/system/cf-postgres.service
-/usr/lib/systemd/system/cf-redis-server.service
-/usr/lib/systemd/system/cf-runalerts.service
 /usr/lib/systemd/system/cf-serverd.service
+
+%if %{?rhel}%{!?rhel:0} > 7
+# SELinux policy
+%dir %prefix/selinux
+%prefix/selinux/cfengine-enterprise.pp
+%prefix/selinux/cfengine-enterprise.te
+%prefix/selinux/cfengine-enterprise.fc
+%endif
 
 # Documentation
 %defattr(644,root,root,755)
 %dir %prefix/share
-%prefix/share/man
+%prefix/share/cf-support-nova-hub.sh
 %prefix/share/doc
 # Web interface
 %prefix/share/GUI
 #postgresql share
 %prefix/share/postgresql/*
-%prefix/share/db
-%{prefix}/share/doc/postgresql/extension/*
+# PostgreSQL log file
+%attr(600,cfpostgres,cfpostgres) /var/log/postgresql.log
+# Only verify owner group mode maj min symlink
+# Don't verify md5, size, mtime
+%verify(not md5 size mtime) /var/log/postgresql.log
 
 # ENT-2708, ENT-2846
 %defattr(600,root,root,700)
@@ -289,10 +381,8 @@ exit 0
 # Base policy
 %defattr(644,root,root,755)
 %prefix/share/NovaBase
-
-# Package modules
 %defattr(755,root,root,755)
-%prefix/share/NovaBase/modules
+%prefix/modules
 
 #DC deps
 %defattr(755,root,root,755)
@@ -310,8 +400,11 @@ exit 0
 %prefix/httpd/bin
 %prefix/httpd/cgi-bin
 
-%defattr(644,root,root,755)
+%defattr(460,root,cfapache,570)
 %prefix/httpd/conf
+%config %prefix/httpd/conf/httpd.conf
+# Note: MPF policy must be aligned search for ENT-11096 or cfengine_mp_apache_config_ownership_perms
+%attr(400,root,root) %prefix/httpd/conf/httpd.conf
 %prefix/httpd/error
 %prefix/httpd/htdocs
 %prefix/httpd/icons
@@ -319,24 +412,21 @@ exit 0
 %prefix/httpd/modules
 %prefix/httpd/php/lib
 %prefix/httpd/php/php
+%prefix/httpd/php/etc
+%config(noreplace) %prefix/httpd/php/lib/php.ini
 
 %defattr(755,root,root,755)
 %prefix/httpd/php/bin
+%prefix/httpd/php/sbin
 
 # Software upgrade delivery area
 %dir %prefix/master_software_updates
-
-# Design Center
-%defattr(755,root,root,755)
-%dir %prefix/design-center
-%prefix/design-center/bin
-%prefix/design-center/lib
 
 # Private directories
 %defattr(700,root,root,700)
 %dir %prefix/ppkeys
 %dir %prefix/outputs
 %dir %prefix/inputs
-%dir %prefix/modules
+%dir %prefix/state
 
 %changelog

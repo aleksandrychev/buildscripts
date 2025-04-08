@@ -42,46 +42,39 @@ install: build
 # GUI, REST, KB
 	cp -R $(BASEDIR)/mission-portal $(CURDIR)/debian/tmp$(PREFIX)/share/GUI
 
-	rm -f $(CURDIR)/debian/tmp$(PREFIX)/share/GUI/runalerts.php
-	cp -v $(BASEDIR)/mission-portal/runalerts.php $(CURDIR)/debian/tmp$(PREFIX)/bin/runalerts.php
-
 	mkdir $(CURDIR)/debian/tmp$(PREFIX)/share/GUI/api
 	cp -R $(BASEDIR)/nova/api/http/* $(CURDIR)/debian/tmp$(PREFIX)/share/GUI/api
 	chmod 700 $(CURDIR)/debian/tmp$(PREFIX)/share/GUI/api/dc-scripts/*.sh
 	cp -R $(BASEDIR)/nova/api/http/.htaccess $(CURDIR)/debian/tmp$(PREFIX)/share/GUI/api
 	cp -R $(BASEDIR)/enterprise/misc/solaris_admin_files $(CURDIR)/debian/tmp$(PREFIX)/share/solaris_admin_files
 	rm -rf $(CURDIR)/debian/tmp$(PREFIX)/share/GUI/tests
+	rm -rf $(CURDIR)/debian/tmp$(PREFIX)/share/GUI/api/tests
+	rm -rf $(CURDIR)/debian/tmp$(PREFIX)/share/GUI/ldap/tests
 	rm -rf $(CURDIR)/debian/tmp$(PREFIX)/share/GUI/application/controllers/testing.php
 	rm -rf $(CURDIR)/debian/tmp$(PREFIX)/share/GUI/unittest_index.php
 	rm -rf $(CURDIR)/debian/tmp$(PREFIX)/share/GUI/unit_test.php
+	rm -rf $(CURDIR)/debian/tmp$(PREFIX)/share/GUI/secrets.txt
 	rm -rf $(CURDIR)/debian/tmp$(PREFIX)/httpd/htdocs/index.html
 
 # Change mode in MP from development to production and change the session key
 
 
 
-	sed "s/define('ENVIRONMENT', 'development')/define('ENVIRONMENT','production')/g" $(CURDIR)/debian/tmp$(PREFIX)/share/GUI/index.php > $(CURDIR)/debian/tmp$(PREFIX)/share/GUI/index.php.tmp
-	mv $(CURDIR)/debian/tmp$(PREFIX)/share/GUI/index.php.tmp $(CURDIR)/debian/tmp$(PREFIX)/share/GUI/index.php
-	rm -f $(CURDIR)/debian/tmp$(PREFIX)/share/GUI/index.php.tmp
+	sed "s/define('ENVIRONMENT', 'development')/define('ENVIRONMENT','production')/g" $(CURDIR)/debian/tmp$(PREFIX)/share/GUI/public/index.php > $(CURDIR)/debian/tmp$(PREFIX)/share/GUI/public/index.php.tmp
+	mv $(CURDIR)/debian/tmp$(PREFIX)/share/GUI/public/index.php.tmp $(CURDIR)/debian/tmp$(PREFIX)/share/GUI/public/index.php
+	rm -f $(CURDIR)/debian/tmp$(PREFIX)/share/GUI/public/index.php.tmp
 
 # NovaBase
 	mkdir -p $(CURDIR)/debian/tmp$(PREFIX)/share/NovaBase
 	cp -R $(CURDIR)/debian/tmp$(PREFIX)/masterfiles $(CURDIR)/debian/tmp$(PREFIX)/share/NovaBase/masterfiles
 	rm -rf $(CURDIR)/debian/tmp$(PREFIX)/masterfiles
-	cp -R $(CURDIR)/debian/tmp$(PREFIX)/modules $(CURDIR)/debian/tmp$(PREFIX)/share/NovaBase/modules
-	rm -rf $(CURDIR)/debian/tmp$(PREFIX)/modules/*
-
-#Design Center
-
-	mkdir -p $(CURDIR)/debian/tmp$(PREFIX)/design-center
-	cp -R $(CURDIR)/debian/tmp/sketches/* $(CURDIR)/debian/tmp$(PREFIX)/share/NovaBase/sketches
-	cp -R $(CURDIR)/debian/tmp/tools/* $(CURDIR)/debian/tmp$(PREFIX)/design-center
 
 #Postgres
 	mkdir -p $(CURDIR)/debian/tmp$(PREFIX)/share/db
 	cp $(BASEDIR)/nova/db/schema.sql $(CURDIR)/debian/tmp$(PREFIX)/share/db/
 	cp $(BASEDIR)/nova/db/schema_settings.sql $(CURDIR)/debian/tmp$(PREFIX)/share/db/
 	cp $(BASEDIR)/nova/db/ootb_settings.sql $(CURDIR)/debian/tmp$(PREFIX)/share/db/
+	cp $(BASEDIR)/nova/db/ootb_import.sql $(CURDIR)/debian/tmp$(PREFIX)/share/db/
 
 # ENT-2708, ENT-2846
 	chmod 600 $(CURDIR)/debian/tmp$(PREFIX)/share/GUI/application/config/*.php
@@ -90,6 +83,17 @@ install: build
 	chmod 600 $(CURDIR)/debian/tmp$(PREFIX)/share/GUI/phpcfenginenova/migrations/*.sql
 	chmod 600 $(CURDIR)/debian/tmp$(PREFIX)/share/db/*.sql
 
+# Make sure cfbs is available and in place
+	mkdir -p $(CURDIR)/debian/tmp/tmp/cfbs_root
+	pip3 install --root $(CURDIR)/debian/tmp/tmp/cfbs_root -r $(CURDIR)/requirements.txt
+	mkdir -p $(CURDIR)/debian/tmp$(PREFIX)/lib/python
+	mv $(CURDIR)/debian/tmp/tmp/cfbs_root/usr/local/lib/python*/dist-packages/cfbs $(CURDIR)/debian/tmp$(PREFIX)/lib/python
+	mv $(CURDIR)/debian/tmp/tmp/cfbs_root/usr/local/bin/cfbs $(CURDIR)/debian/tmp$(PREFIX)/bin/
+	sed -i "/^from cfbs.*/i sys.path.append(\"$(PREFIX)/lib/python\")" $(CURDIR)/debian/tmp$(PREFIX)/bin/cfbs
+	rm -rf $(CURDIR)/debian/tmp/tmp/cfbs_root
+
+# cf-enterprise-support
+	cp $(BASEDIR)/nova/misc/cf-support-nova-hub.sh $(CURDIR)/debian/tmp$(PREFIX)/share/
 
 
 binary-indep: build install

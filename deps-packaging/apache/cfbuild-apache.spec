@@ -1,4 +1,4 @@
-%define apache_version 2.4.27
+%define apache_version 2.4.63
 %global __os_install_post %{nil}
 
 Summary: CFEngine Build Automation -- apache
@@ -7,9 +7,10 @@ Version: %{version}
 Release: 1
 Source0: httpd-%{apache_version}.tar.gz
 Source1: httpd.conf
+Patch0:  apachectl.patch
 License: MIT
 Group: Other
-Url: http://example.com/
+Url: https://cfengine.com
 BuildRoot: %{_topdir}/BUILD/%{name}-%{version}-%{release}-buildroot
 
 AutoReqProv: no
@@ -20,6 +21,8 @@ AutoReqProv: no
 mkdir -p %{_builddir}
 %setup -q -n httpd-%{apache_version}
 
+%patch0 -p0
+
 CPPFLAGS=-I%{buildprefix}/include
 
 
@@ -27,13 +30,13 @@ CPPFLAGS=-I%{buildprefix}/include
     --prefix=%{prefix}/httpd \
     --enable-so \
     --enable-mods-shared="all ssl ldap authnz_ldap" \
+    --enable-http2 \
     --with-z=%{prefix} \
     --with-ssl=%{prefix} \
     --with-ldap=%{prefix} \
     --with-apr=%{prefix} \
     --with-apr-util=%{prefix} \
-    --with-pcre=%{prefix} \
-    --with-mpm=prefork \
+    --with-pcre=%{prefix}/bin/pcre2-config \
     CPPFLAGS="$CPPFLAGS"
 
 %build
@@ -44,6 +47,9 @@ make
 rm -rf ${RPM_BUILD_ROOT}
 
 make install DESTDIR=${RPM_BUILD_ROOT}
+
+# ensure apache-created files are not readable by others, ENT-7948
+echo "umask 0177" >> ${RPM_BUILD_ROOT}%{prefix}/httpd/bin/envvars
 
 # Removing unused files
 
@@ -89,3 +95,6 @@ CFEngine Build Automation -- apache -- development files
 %prefix/httpd/include
 
 %changelog
+
+
+

@@ -1,7 +1,12 @@
 if [ -x /bin/systemctl ]; then
   # This is important in case any of the units have been replaced by the package
   # and we call them in the postinstall script.
-  /bin/systemctl daemon-reload
+  if ! /bin/systemctl daemon-reload; then
+    cf_console echo "warning! /bin/systemctl daemon-reload failed."
+    cf_console echo "systemd seems to be installed, but not working."
+    cf_console echo "Relevant parts of CFEngine installation will fail."
+    cf_console echo "Please fix systemd or use other ways to start CFEngine."
+  fi
 fi
 
 #
@@ -22,40 +27,25 @@ if is_community; then
     #
     $PREFIX/bin/cf-promises -T $PREFIX/masterfiles
   fi
-
-  #
-  # Copy the stock package modules for the new installations
-  #
-  (
-    if ! [ -d $PREFIX/modules/packages ]; then
-      mkdir -p $PREFIX/modules/packages
-    fi
-    if cd $PREFIX/share/CoreBase/modules/packages; then
-      for module in *; do
-        if ! [ -f $PREFIX/modules/packages/$module ]; then
-          cp $module $PREFIX/modules/packages
-        fi
-      done
-    fi
-  )
 fi
 
 #
-# Create a plugins directory if it doesnot exist
+# Cleanup deprecated plugins directory
 #
-if ! [ -d $PREFIX/plugins ]; then
-  mkdir -p $PREFIX/plugins
-  chmod 700 $PREFIX/plugins
+if ! rmdir $PREFIX/plugins 2> /dev/null; then
+    # CFE-3618
+    echo "$PREFIX/plugins has been removed from the default distribution, we \
+tried to clean up the unused directory but found it was not empty. Please \
+review your policy, if you believe this directory should remain part of the \
+default distribution, please open a ticket in the CFEngine bug tracker."
 fi
 
 if [ -f $PREFIX/bin/cf-twin ]; then
   rm -f $PREFIX/bin/cf-twin
 fi
 
-cp $PREFIX/bin/cf-agent $PREFIX/bin/cf-twin
-
 mkdir -p /usr/local/sbin
-for i in cf-agent cf-promises cf-key cf-execd cf-serverd cf-monitord cf-runagent cf-net;
+for i in cf-agent cf-promises cf-key cf-secret cf-execd cf-serverd cf-monitord cf-runagent cf-net cf-check cf-support;
 do
   if [ -f $PREFIX/bin/$i ]; then
     ln -sf $PREFIX/bin/$i /usr/local/sbin/$i || true
@@ -66,7 +56,9 @@ do
       if [ -f /usr/share/man/man8/$i.8.gz ]; then
         rm -f /usr/share/man/man8/$i.8.gz
       fi
-      $PREFIX/bin/$i -M > /usr/share/man/man8/$i.8 && gzip /usr/share/man/man8/$i.8
+      if $PREFIX/bin/$i -M > /usr/share/man/man8/$i.8; then
+        gzip /usr/share/man/man8/$i.8 || true
+      fi
       ;;
   esac
 done
@@ -79,11 +71,9 @@ case `os_type` in
     if [ -x /bin/systemctl ]; then
       # Reload systemd config to pick up newly installed units
       /bin/systemctl daemon-reload > /dev/null 2>&1
-      # Enable service units
-      /bin/systemctl enable cf-execd.service > /dev/null 2>&1
-      /bin/systemctl enable cf-serverd.service > /dev/null 2>&1
-      /bin/systemctl enable cf-monitord.service > /dev/null 2>&1
-      /bin/systemctl enable cfengine3.service > /dev/null 2>&1
+      # Enable cfengine3 service (starts all the other services)
+      # Enabling the service is OK to fail (can be masked, for example)
+      /bin/systemctl enable cfengine3.service > /dev/null 2>&1 || true
     else
       case `os_type` in
         redhat)
@@ -123,16 +113,67 @@ case `os_type` in
     ;;
 esac
 
+# (re)load SELinux policy if available and required
+if [ `os_type` = "redhat" ] &&
+   [ -f "$PREFIX/selinux/cfengine-enterprise.pp" ];
+then
+  if command -v /usr/sbin/selinuxenabled >/dev/null &&
+      /usr/sbin/selinuxenabled;
+  then
+    command -v semodule >/dev/null || cf_console echo "warning! selinux exists and returns 0 but semodule not found"
+    test -x /usr/sbin/load_policy  || cf_console echo "warning! selinuxenabled exists and returns 0 but load_policy not found"
+    test -x /usr/sbin/restorecon   || cf_console echo "warning! selinuxenabled exists and returns 0 but restorecon not found"
+
+  fi
+  if ! cf_console semodule -n -i "$PREFIX/selinux/cfengine-enterprise.pp"; then
+    cf_console echo "warning! semodule import failed, examine /var/log/CFE*log and \
+consider installing selinux-policy-devel package and \
+rebuilding policy with: \
+\
+cd $PREFIX/selinux \
+make -f /usr/share/selinux/devel/Makefile -j1 \
+semodule -n -i $PREFIX/selinux/cfengine-enterprise.pp \
+\
+and then restarting services with  \
+\
+systemctl restart cfengine3"
+  fi
+  if /usr/sbin/selinuxenabled; then
+    /usr/sbin/load_policy
+    /usr/sbin/restorecon -R /var/cfengine
+  fi
+fi
+
+restorecon_run=0
 if [ -f $PREFIX/policy_server.dat ]; then
-  if ! [ -f "$PREFIX/UPGRADED_FROM.txt" ] || egrep '3\.([0-6]|7\.0)' "$PREFIX/UPGRADED_FROM.txt" > /dev/null; then
+  if ! [ -f "$PREFIX/UPGRADED_FROM.txt" ] || egrep '3\.([0-6]\.|7\.0)' "$PREFIX/UPGRADED_FROM.txt" > /dev/null; then
     # Versions <= 3.7.0 are unreliable in their daemon killing. Kill them one
     # more time now that we have upgraded.
     cf_console platform_service cfengine3 stop
   fi
 
-  cf_console platform_service cfengine3 start
+  # Let's make sure all files and directories created above have correct SELinux labels.
+  # run this BEFORE we start services again to avoid race conditions in restorecon
+  if command -v restorecon >/dev/null; then
+    restorecon -iR /var/cfengine /opt/cfengine
+    restorecon_run=1
+  fi
+
+  if is_upgrade && [ -f "$PREFIX/UPGRADED_FROM_STATE.txt" ]; then
+      cf_console restore_cfengine_state "$PREFIX/UPGRADED_FROM_STATE.txt"
+      rm -f "$PREFIX/UPGRADED_FROM_STATE.txt"
+  else
+      cf_console platform_service cfengine3 start
+  fi
 fi
 
 rm -f "$PREFIX/UPGRADED_FROM.txt"
+
+if [ $restorecon_run = 0 ]; then
+  # if we didn't run restorecon above in the already bootstrapped/upgrade case then run it now
+  if command -v restorecon >/dev/null; then
+    restorecon -iR /var/cfengine /opt/cfengine
+  fi
+fi
 
 exit 0

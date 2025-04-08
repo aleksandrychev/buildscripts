@@ -4,7 +4,6 @@
 . detect-environment
 . compile-options
 
-
 # WARNING we alter the buildslave: we remove UNWANTED_DEPS
 
 
@@ -18,11 +17,11 @@
 
 case "$OS" in
     rhel|centos)
-        DEP_LIST="gcc-c++ ncurses ncurses-devel pkgconfig rpm-build pam-devel"
+        DEP_LIST="gcc-c++ ncurses ncurses-devel pkgconfig pam-devel"
         UNWANTED_DEPS="libtool-ltdl libtool-ltdl-devel"
         ;;
     debian|ubuntu)
-        DEP_LIST="dpkg-dev debhelper g++ libncurses5 pkg-config build-essential libpam0g-dev"
+        DEP_LIST="dpkg-dev debhelper g++ pkg-config build-essential libpam0g-dev"
         UNWANTED_DEPS="libltdl-dev libltdl7"
         ;;
 
@@ -33,16 +32,20 @@ case "$OS" in
         ;;
 esac
 
-# Fakeroot is here: http://dl.atrpms.net/el5-$1/atrpms/stable/fakeroot-1.6.4-15.1.el5.$1.rpm
-#          It is needed by the debian buildslaves for their packaging scripts
+
 case "$OS-$OS_VERSION" in
-    rhel-* | centos-* ) DEP_LIST="$DEP_LIST" ;;
+    rhel-6*|centos-6*)
+        DEP_LIST="$DEP_LIST rpm-build"
+        ;;
+    rhel-* | centos-* )
+        DEP_LIST="$DEP_LIST rpm-build-libs"
+        ;;
     *)                  DEP_LIST="$DEP_LIST fakeroot"    ;;
 esac
 
 
-DEP_LIST="$DEP_LIST ntp rsync gcc make sudo wget"
-UNWANTED_DEPS="$UNWANTED_DEPS libtool"    # TODO automake autoconf bison byacc flex
+DEP_LIST="$DEP_LIST rsync gcc make sudo wget"
+#UNWANTED_DEPS="$UNWANTED_DEPS libtool"    # TODO automake autoconf bison byacc flex
 
 
 RET=0

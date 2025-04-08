@@ -1,11 +1,13 @@
+%define git_version 2.49.0
+
 Summary: CFEngine Build Automation -- git
 Name: cfbuild-git
 Version: %{version}
 Release: 1
-Source0: git-2.13.3.tar.gz
+Source0: git-%{git_version}.tar.gz
 License: MIT
 Group: Other
-Url: http://example.com/
+Url: https://cfengine.com
 BuildRoot: %{_topdir}/BUILD/%{name}-%{version}-%{release}-buildroot
 
 AutoReqProv: no
@@ -14,13 +16,13 @@ AutoReqProv: no
 
 %prep
 mkdir -p %{_builddir}
-%setup -q -n git-2.13.3
+%setup -q -n git-%{git_version}
 
-./configure --prefix=%{prefix} --with-libpcre=%{prefix} --with-openssl=%{prefix} --without-iconv --with-gitconfig=%{prefix} --with-gitattributes=%{prefix} --with-zlib=%{prefix} --with-curl=%{prefix}  --libexecdir=%{prefix}/lib
+./configure --prefix=%{prefix} --with-openssl=%{prefix} --without-iconv --with-gitconfig=%{prefix}/config/gitconfig --with-gitattributes=%{prefix}/config/gitattributes --with-zlib=%{prefix} --with-curl=%{prefix}  --libexecdir=%{prefix}/lib --with-python=%{prefix}/bin/python
 
 %build
 
-make
+make CURL_LDFLAGS="-lcurl"
 
 %install
 rm -rf ${RPM_BUILD_ROOT}
@@ -34,6 +36,7 @@ rm -rf ${RPM_BUILD_ROOT}%{prefix}/lib/python*
 rm -rf ${RPM_BUILD_ROOT}%{prefix}/lib64
 rm -rf ${RPM_BUILD_ROOT}%{prefix}/perl5
 rm -rf ${RPM_BUILD_ROOT}%{prefix}/share/perl5
+rm -rf ${RPM_BUILD_ROOT}%{prefix}/bin/scalar
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -59,9 +62,12 @@ CFEngine Build Automation -- git
 %{prefix}/share/gitk
 %{prefix}/share/gitweb
 %{prefix}/share/locale
-%{prefix}/share/man
 
 %dir %{prefix}/lib
 %{prefix}/lib/git-core
 
 %changelog
+
+
+
+

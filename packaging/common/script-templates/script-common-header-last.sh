@@ -21,8 +21,23 @@ is_nova()
   test "$PROJECT_TYPE" = "cfengine-nova" || test "$PROJECT_TYPE" = "cfengine-nova-hub"
 }
 
-INSTLOG=/var/log/CFEngineHub-Install.log
+case "`os_type`" in
+    aix)
+        INSTLOGGROUP="system"
+        ;;
+    *)
+        INSTLOGGROUP="root"
+        ;;
+esac
+
+INSTLOG="/var/log/CFEngine-Install-$(date '+%Y-%m-%d_%H:%M:%S_%Z').log"
 mkdir -p "$(dirname "$INSTLOG")"
+touch "$INSTLOG"
+rm -f /var/log/CFEngineHub-Install.log
+rm -f /var/log/CFEngine-Install.log
+ln -s "$INSTLOG" /var/log/CFEngine-Install.log
+chown root:$INSTLOGGROUP "$INSTLOG"
+chmod 600 "$INSTLOG"
 CONSOLE=7
 # Redirect most output to log file, but keep console around for custom output.
 case "$SCRIPT_TYPE" in

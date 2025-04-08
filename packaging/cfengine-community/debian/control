@@ -1,7 +1,7 @@
 Source: cfengine-community
 Section: utils
 Priority: extra
-Maintainer: CFEngine AS <contact@cfengine.com>
+Maintainer: Northern.tech AS <contact@cfengine.com>
 Build-Depends: debhelper
 Standards-Version: 3.8.4
 
@@ -11,6 +11,7 @@ Depends: ${shlibs:Depends}, ${misc:Depends}
 Provides: cfengine3
 Conflicts: cfengine3
 Replaces: cfengine3
+Recommends: gzip
 Description: CFEngine 3 Community
  CFEngine, or the configuration engine is an agent/software robot and a
  very high level language for building expert systems to administrate

@@ -12,9 +12,8 @@ build: build-stamp
 build-stamp:
 	dh_testdir
 
-	patch -p1 < 0001-Prefix-windres-with-cross-compiler-name.patch
-	patch -p0 < fix-libtool-magic.patch
-	ln -s /var/cfengine/bin/libgnurx-0.dll .
+	patch -p0 < mingw_build_fixes.patch
+	ln -s $(PREFIX)/bin/libgnurx-0.dll .
 
 	# Configure is unable to test memcmp for cross-compilation
 	# getaddrinfo/getnameinfo are broken in MinGW as well as socklen in2.4.36 work around it
@@ -28,6 +27,7 @@ build-stamp:
 	    --disable-slapd \
 	    --disable-backends \
 	    --with-tls=openssl \
+	    --with-openssl=$(PREFIX) \
 	    --without-gssapi \
 	    CC="$(DEB_HOST_GNU_TYPE)-gcc -static-libgcc" \
 	    AR=$(DEB_HOST_GNU_TYPE)-ar \

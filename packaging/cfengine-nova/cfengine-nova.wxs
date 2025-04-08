@@ -25,17 +25,17 @@
    <?endif?>
 
    <Product Id='*' Name='CFEngine Nova' Language='1033'
-            Version='$(var.CfVersion)' Manufacturer='CFEngine AS' UpgradeCode='B883FBCC-6F05-4AFA-98FA-CAF09BF464EA' >
+            Version='$(var.CfVersion)' Manufacturer='Northern.tech AS' UpgradeCode='B883FBCC-6F05-4AFA-98FA-CAF09BF464EA' >
 
       <Package Description='CFEngine Nova' Platform='$(var.CfArch)'
                Comments='This package contains CFEngine Nova'
-               Manufacturer='CFEngine AS' InstallerVersion='200' Compressed='yes' />
+               Manufacturer='Northern.tech AS' InstallerVersion='200' Compressed='yes' />
 
 	  <Media Id='1' Cabinet='cfnova.cab' EmbedCab='yes' />
 
 	  <!-- Run cf-key after new installation -->
 	  <Property Id='GenerateKey' Value='empty, for now'  />
-	  <CustomAction Id='GenerateKeyPath' Property='GenerateKey' Value='&quot;[$(var.dirProgFiles)]\Cfengine\bin\cf-key.exe&quot;' Return='check' />
+	  <CustomAction Id='GenerateKeyPath' Property='GenerateKey' Value='&quot;C:\windows\system32\cmd.exe&quot; /c if not exist &quot;[$(var.dirProgFiles)]\Cfengine\ppkeys\localhost.pub&quot; &quot;[$(var.dirProgFiles)]\Cfengine\bin\cf-key.exe&quot;' Return='check' />
 	  <CustomAction Id='GenerateKey' BinaryKey='WixCA' DllEntry='CAQuietExec' Execute='deferred' Impersonate='no' Return='check' />
 
 	  <!-- Start service if the host has already been bootstrapped -->
@@ -62,8 +62,14 @@
               <Component Id='cf_agent.exe' Guid='8CEA06F4-1133-4E98-9EEF-9C1D39DEFAA5' Win64='$(var.isWin64)'>
                 <File Id='cf_agent.exe' Name='cf-agent.exe' KeyPath='yes' DiskId='1' Source='$(var.CfSourceDir)\bin\cf-agent.exe' />
               </Component>
+              <Component Id='cf_check.exe' Guid='8A933D36-1C68-48E3-8A3E-391CFE9C88B4' Win64='$(var.isWin64)'>
+                <File Id='cf_check.exe' Name='cf-check.exe' KeyPath='yes' DiskId='1' Source='$(var.CfSourceDir)\bin\cf-check.exe' />
+              </Component>
               <Component Id='cf_key.exe' Guid='2E9A81B7-B10A-4D1A-BE66-F3097E3D0C32' Win64='$(var.isWin64)'>
                 <File Id='cf_key.exe' Name='cf-key.exe' KeyPath='yes' DiskId='1' Source='$(var.CfSourceDir)\bin\cf-key.exe' />
+              </Component>
+              <Component Id='cf_secret.exe' Guid='9AC8695E-2525-439C-924A-D8615CDCB663' Win64='$(var.isWin64)'>
+                <File Id='cf_secret.exe' Name='cf-secret.exe' KeyPath='yes' DiskId='1' Source='$(var.CfSourceDir)\bin\cf-secret.exe' />
               </Component>
               <Component Id='cf_monitord.exe' Guid='F9E42EF0-960C-4DEC-87BB-FB0C53F18E7F' Win64='$(var.isWin64)'>
                 <File Id='cf_monitord.exe' Name='cf-monitord.exe' KeyPath='yes' DiskId='1' Source='$(var.CfSourceDir)\bin\cf-monitord.exe' />
@@ -81,11 +87,29 @@
                 <Environment Id='Path' Name='Path' Value='[dir_bin]' Separator=';' Action='set' Part='last' System='yes' />
                 <File Id='cf_serverd.exe' Name='cf-serverd.exe' KeyPath='yes' DiskId='1' Source='$(var.CfSourceDir)\bin\cf-serverd.exe' />
               </Component>
+              <Component Id='diff.exe' Guid='A343B6FD-A0E9-468A-8678-84647C609DC6' Win64='$(var.isWin64)'>
+                <File Id='diff.exe' Name='diff.exe' KeyPath='yes' DiskId='1' Source='$(var.CfSourceDir)\bin\diff.exe' />
+              </Component>
+              <Component Id='cmp.exe' Guid='587163db-db68-4c1c-9783-09d0eb938482' Win64='$(var.isWin64)'>
+                <File Id='cmp.exe' Name='cmp.exe' KeyPath='yes' DiskId='1' Source='$(var.CfSourceDir)\bin\cmp.exe' />
+              </Component>
+              <Component Id='sdiff.exe' Guid='5f25a9a9-ccf3-424b-9dcb-2574953eba92' Win64='$(var.isWin64)'>
+                <File Id='sdiff.exe' Name='sdiff.exe' KeyPath='yes' DiskId='1' Source='$(var.CfSourceDir)\bin\sdiff.exe' />
+              </Component>
+              <Component Id='diff3.exe' Guid='73fe2642-63b1-4e98-bd4f-60594049be49' Win64='$(var.isWin64)'>
+                <File Id='diff3.exe' Name='diff3.exe' KeyPath='yes' DiskId='1' Source='$(var.CfSourceDir)\bin\diff3.exe' />
+              </Component>
               <Component Id='mdb_copy.exe' Guid='E41C3638-9BBE-497D-A5A8-DB2021030113' Win64='$(var.isWin64)'>
                 <File Id='mdb_copy.exe' Name='mdb_copy.exe' KeyPath='yes' DiskId='1' Source='$(var.CfSourceDir)\bin\mdb_copy.exe' />
               </Component>
               <Component Id='mdb_stat.exe' Guid='2F61CE79-B0E8-4351-BE3E-7AEE65FE9D8A' Win64='$(var.isWin64)'>
                 <File Id='mdb_stat.exe' Name='mdb_stat.exe' KeyPath='yes' DiskId='1' Source='$(var.CfSourceDir)\bin\mdb_stat.exe' />
+              </Component>
+              <Component Id='mdb_dump.exe' Guid='AC5DC7F1-80CE-476F-877D-2D94879839E3' Win64='$(var.isWin64)'>
+                <File Id='mdb_dump.exe' Name='mdb_dump.exe' KeyPath='yes' DiskId='1' Source='$(var.CfSourceDir)\bin\mdb_dump.exe' />
+              </Component>
+              <Component Id='mdb_load.exe' Guid='0C48B31C-A05D-43F5-A452-2CE6CC91E963' Win64='$(var.isWin64)'>
+                <File Id='mdb_load.exe' Name='mdb_load.exe' KeyPath='yes' DiskId='1' Source='$(var.CfSourceDir)\bin\mdb_load.exe' />
               </Component>
               <Component Id='lmmgr.exe' Guid='DBF87C39-43FA-4DFE-A442-D2AB5B8985F0' Win64='$(var.isWin64)'>
                 <File Id='lmmgr.exe' Name='lmmgr.exe' KeyPath='yes' DiskId='1' Source='$(var.CfSourceDir)\bin\lmmgr.exe' />
@@ -105,17 +129,20 @@
               <Component Id='libldap.dll' Guid='A49EA879-3D89-4FB0-9D53-3E35BE266DB1' Win64='$(var.isWin64)'>
                 <File Id='libldap.dll' Name='libldap.dll' KeyPath='yes' DiskId='1' Source='$(var.CfSourceDir)\bin\libldap.dll' />
               </Component>
-              <Component Id='libpcre_1.dll' Guid='A32A88D5-6E60-4852-BE95-33FF52CD276D' Win64='$(var.isWin64)'>
-                <File Id='libpcre_1.dll' Name='libpcre-1.dll' KeyPath='yes' DiskId='1' Source='$(var.CfSourceDir)\bin\libpcre-1.dll' />
+              <Component Id='libpcre2_8_0.dll' Guid='A32A88D5-6E60-4852-BE95-33FF52CD276E' Win64='$(var.isWin64)'>
+                <File Id='libpcre2_8_0.dll' Name='libpcre2-8-0.dll' KeyPath='yes' DiskId='1' Source='$(var.CfSourceDir)\bin\libpcre2-8-0.dll' />
               </Component>
               <Component Id='pthreadGC2.dll' Guid='C9A99E1A-8ECE-4EAF-96DA-12B6BC298BFD' Win64='$(var.isWin64)'>
                 <File Id='pthreadGC2.dll' Name='pthreadGC2.dll' KeyPath='yes' DiskId='1' Source='$(var.CfSourceDir)\bin\pthreadGC2.dll' />
               </Component>
-              <Component Id='libeay32.dll' Guid='3511EBFA-1D63-49E7-971D-5600CA59FD45' Win64='$(var.isWin64)'>
-                <File Id='libeay32.dll' Name='libeay32.dll' KeyPath='yes' DiskId='1' Source='$(var.CfSourceDir)\bin\libeay32.dll' />
+              <Component Id='libwinpthread_1.dll' Guid='9109f8e5-fc06-4102-b287-882e66f3864e' Win64='$(var.isWin64)'>
+                <File Id='libwinpthread_1.dll' Name='libwinpthread-1.dll' KeyPath='yes' DiskId='1' Source='$(var.CfSourceDir)\bin\libwinpthread-1.dll' />
               </Component>
-              <Component Id='ssleay32.dll' Guid='817a8252-375c-495c-a7c1-349457954730' Win64='$(var.isWin64)'>
-                <File Id='ssleay32.dll' Name='ssleay32.dll' KeyPath='yes' DiskId='1' Source='$(var.CfSourceDir)\bin\ssleay32.dll' />
+              <Component Id='libcrypto_3_x64.dll' Guid='BEC456CE-8CEF-4E4A-B15B-585D0D2AA205' Win64='$(var.isWin64)'>
+                <File Id='libcrypto_3_x64.dll' Name='libcrypto-3-x64.dll' KeyPath='yes' DiskId='1' Source='$(var.CfSourceDir)\bin\libcrypto-3-x64.dll' />
+              </Component>
+              <Component Id='libssl_3_x64.dll' Guid='094AA0E1-82AD-478F-9EA0-734607617746' Win64='$(var.isWin64)'>
+                <File Id='libssl_3_x64.dll' Name='libssl-3-x64.dll' KeyPath='yes' DiskId='1' Source='$(var.CfSourceDir)\bin\libssl-3-x64.dll' />
               </Component>
               <Component Id='libgnurx_0.dll' Guid='18554ae8-9c92-4cc7-8e5a-7f41ed2080d6' Win64='$(var.isWin64)'>
                 <File Id='libgnurx_0.dll' Name='libgnurx-0.dll' KeyPath='yes' DiskId='1' Source='$(var.CfSourceDir)\bin\libgnurx-0.dll' />
@@ -125,6 +152,12 @@
               </Component>
               <Component Id='libyaml_0_2.dll' Guid='6f6ff21a-168a-11e5-b6dc-0021ccb95c52' Win64='$(var.isWin64)'>
                 <File Id='libyaml_0_2.dll' Name='libyaml-0-2.dll' KeyPath='yes' DiskId='1' Source='$(var.CfSourceDir)\bin\libyaml-0-2.dll' />
+              </Component>
+              <Component Id='librsync_0.dll' Guid='B5300346-FF77-40BD-B1E9-8C2FEBFADF47' Win64='$(var.isWin64)'>
+                <File Id='librsync_0.dll' Name='librsync-0.dll' KeyPath='yes' DiskId='1' Source='$(var.CfSourceDir)\bin\librsync-0.dll' />
+              </Component>
+              <Component Id='libleech_0.dll' Guid='A302A048-76D4-45CF-BC68-BB9837015C9A' Win64='$(var.isWin64)'>
+                <File Id='libleech_0.dll' Name='libleech-0.dll' KeyPath='yes' DiskId='1' Source='$(var.CfSourceDir)\bin\libleech-0.dll' />
               </Component>
               <Component Id='zlib1.dll' Guid='ea2e067f-5580-4167-86ba-ec89e560be80' Win64='$(var.isWin64)'>
                 <File Id='zlib1.dll' Name='zlib1.dll' KeyPath='yes' DiskId='1' Source='$(var.CfSourceDir)\bin\zlib1.dll' />
@@ -136,6 +169,12 @@
                 <File Id='libcurl_4.dll' Name='libcurl-4.dll' KeyPath='yes' DiskId='1' Source='$(var.CfSourceDir)\bin\libcurl-4.dll' />
               </Component>
             </Directory>
+			<!-- ===== Cfengine\ssl ===== -->
+            <Directory Id='dir_ssl' Name='ssl'>
+              <Component Id='openssl.cnf' Guid='51EF6C21-D0AD-4A29-9F83-B72B5DF614A5' Win64='$(var.isWin64)'>
+                <File Id='openssl.cnf' Name='openssl.cnf' KeyPath='yes' DiskId='1' Source='$(var.CfSourceDir)\ssl\openssl.cnf' />
+              </Component>
+            </Directory>
           </Directory>
         </Directory>
       </Directory>
@@ -143,31 +182,42 @@
       <Feature Id='CfFeature' Title='CfFeature' Level='1'>
             <ComponentRef Id='cf_execd.exe' />
             <ComponentRef Id='cf_agent.exe' />
+            <ComponentRef Id='cf_check.exe' />
             <ComponentRef Id='cf_key.exe' />
             <ComponentRef Id='cf_monitord.exe' />
             <ComponentRef Id='cf_net.exe' />
             <ComponentRef Id='cf_promises.exe' />
             <ComponentRef Id='cf_runagent.exe' />
             <ComponentRef Id='cf_serverd.exe' />
+            <ComponentRef Id='cf_secret.exe' />
             <ComponentRef Id='cf_upgrade.exe' />
             <ComponentRef Id='mdb_copy.exe' />
             <ComponentRef Id='mdb_stat.exe' />
             <ComponentRef Id='lmmgr.exe' />
             <ComponentRef Id='lmdump.exe' />
+            <ComponentRef Id='diff.exe' />
+            <ComponentRef Id='diff3.exe' />
+            <ComponentRef Id='cmp.exe' />
+            <ComponentRef Id='sdiff.exe' />
 
             <ComponentRef Id='cf.events.dll' />
             <ComponentRef Id='liblber.dll' />
             <ComponentRef Id='libldap.dll' />
-            <ComponentRef Id='libpcre_1.dll' />
+            <ComponentRef Id='libpcre2_8_0.dll' />
             <ComponentRef Id='pthreadGC2.dll' />
-            <ComponentRef Id='libeay32.dll' />
-            <ComponentRef Id='ssleay32.dll' />
+            <ComponentRef Id='libwinpthread_1.dll' />
+            <ComponentRef Id='libcrypto_3_x64.dll' />
+            <ComponentRef Id='libssl_3_x64.dll' />
             <ComponentRef Id='libgnurx_0.dll' />
             <ComponentRef Id='liblmdb.dll' />
             <ComponentRef Id='libyaml_0_2.dll' />
+            <ComponentRef Id='librsync_0.dll' />
+            <ComponentRef Id='libleech_0.dll' />
             <ComponentRef Id='zlib1.dll' />
 	    <ComponentRef Id='libxml2.dll' />
 	    <ComponentRef Id='libcurl_4.dll' />
+
+	    <ComponentRef Id='openssl.cnf' />
       </Feature>
 
       <UI>

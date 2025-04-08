@@ -13,6 +13,7 @@ build: build-stamp
 build-stamp:
 	dh_testdir
 
+	patch -p0 < $(CURDIR)/apachectl.patch
 	./configure \
 --prefix=$(PREFIX)/httpd \
 --enable-so \
@@ -22,8 +23,7 @@ build-stamp:
 --with-ldap=$(PREFIX) \
 --with-apr=$(PREFIX) \
 --with-apr-util=$(PREFIX) \
---with-pcre=$(PREFIX) \
---with-mpm=prefork \
+--with-pcre=$(PREFIX)/bin/pcre2-config \
 CPPFLAGS="$(CPPFLAGS)"
 	make
 
@@ -36,6 +36,9 @@ install: build
 	dh_installdirs
 
 	$(MAKE) install DESTDIR=$(CURDIR)/debian/tmp
+
+	# ensure apache-created files are not readable by others, ENT-7948
+	echo "umask 0177" >> $(CURDIR)/debian/tmp$(PREFIX)/httpd/bin/envvars
 
 	rm -rf $(CURDIR)/debian/tmp$(PREFIX)/httpd/man
 	rm -rf $(CURDIR)/debian/tmp$(PREFIX)/httpd/manual

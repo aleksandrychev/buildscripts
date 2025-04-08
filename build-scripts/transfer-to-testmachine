@@ -19,6 +19,15 @@ esac
 
 # Filter out "./" parts in the BASEDIR name.
 # It confuses the rsync -R mechanism.
-BASEDIR_NO_DOT="$(echo $BASEDIR | sed -e 's,/\.,,g')"
-sudo rsync -avR $EXCLUDES --delete --delete-excluded $BASEDIR_NO_DOT/ $TESTMACHINE_URI  >rsync.log
-sudo rsync -avR $EXCLUDES --delete --delete-excluded /var/cfengine/ $TESTMACHINE_URI    >>rsync.log
+# Explanation of sed script:
+# * first we replace "/./" with "/" anywhere in the BASEDIR
+# * then we remove "/." at the end of the BASEDIR
+# This way we avoid errorneously replacing "/." in the
+# middle of BASEDIR like "/home/jenkins/.jenkinsdir/etc"
+# (Google Cloud Jenkins plugin likes to create them)
+BASEDIR_NO_DOT="$(echo $BASEDIR | sed -e 's,/\./,/,g;s,/\.$,,')"
+touch .keepalive-echo
+(while test -e .keepalive-echo; do sleep 60; echo Keep alive; done)&
+sudo rsync -avR $EXCLUDES --delete --delete-excluded "$BASEDIR_NO_DOT/" $TESTMACHINE_URI  >/tmp/rsync.log
+sudo rsync -avR $EXCLUDES --delete --delete-excluded "$PREFIX/" $TESTMACHINE_URI    >>/tmp/rsync.log
+rm .keepalive-echo

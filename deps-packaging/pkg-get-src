@@ -19,7 +19,7 @@ checksum()
 {
     [ $# -lt 2 ]  &&  fatal "$MYNAME: at least 2 args required but got: $*"  2
 
-    FILENAME="$1"
+    LOCAL_FILENAME="$1"
     CHECKSUM="$2"
 
     TAR=`func_which tar gtar`
@@ -30,19 +30,24 @@ checksum()
 
             rm -rf temp  &&  mkdir -p temp  &&  cd temp
 
-            func_decompress "$FILENAME" | $TAR xf - >/dev/null 2>&1
+            func_decompress "$LOCAL_FILENAME" | $TAR xf - >/dev/null 2>&1
             # Bogus file created by older versions of tar trying to untar newer archives.
             rm -f pax_global_header
 
-            ACTUAL_CHECKSUM=`find . -type f | env LC_ALL=C sort | xargs cat | func_md5`
+            ACTUAL_CHECKSUM=`find . -type f | env LC_ALL=C sort | xargs cat | func_sha256`
 
             cd ..  &&  rm -rf temp
             ;;
         *)
-            ACTUAL_CHECKSUM=`func_md5 $FILENAME` ;;
+            ACTUAL_CHECKSUM=`func_sha256 $LOCAL_FILENAME` ;;
     esac
 
     test "$CHECKSUM" = "$ACTUAL_CHECKSUM"
+    result=$?
+    if test "$result" != "0"; then
+      echo "expected checksum $CHECKSUM but got $ACTUAL_CHECKSUM"
+    fi
+    return "$result"
 }
 
 
@@ -53,10 +58,13 @@ fetch_file()
 
     FILENAME="$1"
     CHECKSUM="$2"
+    OPTS="$3"
 
     OUTFILE="$TMPDIR/$FILENAME"
+    [ -n "$OPTS" ] && OUTFILE="$TMPDIR/$OPTS" # to rename the URL
     rm_if_empty "$OUTFILE"
     WGET=`func_whereis wget`
+    CURL=`func_whereis curl`
 
     for URL in $URLS
     do
@@ -67,6 +75,10 @@ fetch_file()
         $WGET --no-check-certificate -t5 "$URL$FILENAME" -O "$OUTFILE" 1>&2  ||  true
 
         # Sometimes wget returns error, but leaves an empty file
+        rm_if_empty "$OUTFILE"
+
+        # try with curl
+        [ -f "$OUTFILE" ]  || curl "$URL$FILENAME" >"$OUTFILE"
         rm_if_empty "$OUTFILE"
 
         # Some wget (1.9.1 on AIX) return 0 even when they failed! So we
@@ -112,7 +124,9 @@ get_src()
     exec <"$DISTFILE"
     read CHECKSUM FILENAME OPTS
 
-    local_filename=`pkg-cache listfile $FILENAME`  ||  true
+    # if OPTS, then check package cache for renamed file (OPTS arg)
+    [ -n "$OPTS" ] && tmp_filename="$OPTS" || tmp_filename="$FILENAME"
+    local_filename=`pkg-cache listfile $tmp_filename`  ||  true
 
     if [ -f "$local_filename" ]  &&  checksum "$local_filename" "$CHECKSUM"
     then
@@ -120,7 +134,8 @@ get_src()
     else
         [ -f "$local_filename" ]  &&  rm -f "$local_filename"
 
-        tmp_filename=`fetch_file $FILENAME $CHECKSUM`
+        tmp_filename=`fetch_file "$FILENAME" $CHECKSUM $OPTS`
+        FILENAME=$(basename "$tmp_filename") # because fetch_file might rename it
 
         # Cache it, both locally and remotely, to avoid hitting upstream every time.
         # pkg-cache will also print the locally stored file, which we want.

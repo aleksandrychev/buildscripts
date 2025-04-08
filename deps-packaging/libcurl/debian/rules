@@ -10,6 +10,12 @@ else
   CC_OVERRIDE="CC=$(DEB_HOST_GNU_TYPE)-gcc -static-libgcc"
 endif
 
+ifeq ($(SYSTEM_SSL),1)
+  SSL_PREFIX=/usr
+else
+  SSL_PREFIX=$(PREFIX)
+endif
+
 clean:
 	dh_testdir
 	dh_testroot
@@ -23,19 +29,19 @@ build-stamp:
 	./configure --with-sysroot=$(PREFIX) \
 				--host=$(DEB_HOST_GNU_TYPE) \
 				$(PTHREAD) \
-				--with-ssl=$(PREFIX) \
+				--with-ssl=$(SSL_PREFIX) \
 				--with-zlib=$(PREFIX) \
 				--prefix=$(PREFIX) \
 				--disable-ldap \
 				--disable-ldaps \
+				--disable-ntlm \
 				--without-axtls \
 				--without-cyassl \
-				--without-darwinssl \
 				--without-egd-socket \
 				--without-gnutls \
 				--without-gssapi \
 				--without-libidn \
-				--without-libmetalink \
+				--without-libpsl \
 				--without-librtmp \
 				--without-libssh2 \
 				--without-nghttp2 \
@@ -58,6 +64,7 @@ install: build
 	dh_installdirs
 
 	make install DESTDIR=$(CURDIR)/debian/tmp
+	find $(CURDIR)/debian/tmp/$(PREFIX)/lib/ -type f ! -name '*.so*' -a ! -name '*.dll' -a ! -name '*.dll.a' -delete
 
 binary-indep: build install
 

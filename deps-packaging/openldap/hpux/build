@@ -2,7 +2,7 @@
 
 # Options
 
-PREFIX=/var/cfengine
+PREFIX=${BUILDPREFIX}
 
 OL=${BUILD_ROOT}/cfbuild-openldap${PREFIX}
 OLD=${BUILD_ROOT}/cfbuild-openldap-devel${PREFIX}
@@ -14,6 +14,9 @@ LDFLAGS="$LDFLAGS -L${BUILD_ROOT}/cfbuild-openldap-devel$PREFIX/lib"
 export LDFLAGS
 
 # Patch
+
+${PATCH} -p1 <host_name_max_hpux.patch
+${PATCH} -p0 <no_Sockaddr_redefine.patch
 
 # Configure
 

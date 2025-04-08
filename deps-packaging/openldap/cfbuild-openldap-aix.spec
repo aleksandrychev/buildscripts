@@ -1,11 +1,14 @@
+%define openldap_version 2.6.9
+
 Summary: CFEngine Build Automation -- openldap
 Name: cfbuild-openldap
 Version: %{version}
 Release: 1
-Source0: openldap-2.4.45.tgz
+Source0: openldap-%{openldap_version}.tgz
+Patch0:  no_Sockaddr_redefine.patch
 License: MIT
 Group: Other
-Url: http://example.com/
+Url: https://cfengine.com
 BuildRoot: %{_topdir}/BUILD/%{name}-%{version}-%{release}-buildroot
 
 AutoReqProv: no
@@ -14,7 +17,9 @@ AutoReqProv: no
 
 %prep
 mkdir -p %{_builddir}
-%setup -q -n openldap-2.4.45
+%setup -q -n openldap-%{openldap_version}
+
+%patch0 -p0
 
 # Either "$LDFLAGS -L%{prefix}lib"
 # Or     "-bsvr4 $LDFLAGS -Wl,-R,%{prefix}/lib"
@@ -52,8 +57,8 @@ $MAKE -C libraries
 %install
 
 $MAKE -C include install DESTDIR=${RPM_BUILD_ROOT}
-sudo cp ./libraries/liblber/.libs/liblber.a /var/cfengine/lib
-sudo cp ./libraries/liblber/.libs/liblber.so /var/cfengine/lib
+sudo cp ./libraries/liblber/.libs/liblber.a %{prefix}/lib
+sudo cp ./libraries/liblber/.libs/liblber.so %{prefix}/lib
 $MAKE -C libraries install DESTDIR=${RPM_BUILD_ROOT}
 
 # Removing unused files

@@ -2,14 +2,10 @@
 
 # Options
 
-PREFIX=/var/cfengine
+PREFIX=${BUILDPREFIX}
 
 LX=${BUILD_ROOT}/cfbuild-libxml2${PREFIX}
 LXD=${BUILD_ROOT}/cfbuild-libxml2-devel${PREFIX}
-
-# Patch
-
-$PATCH -p0 < solaris-8-inttypes.patch
 
 # Configure
 

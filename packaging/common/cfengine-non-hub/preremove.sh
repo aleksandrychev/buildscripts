@@ -5,7 +5,7 @@ case `os_type` in
     #
     # Unregister CFEngine initscript on uninstallation.
     #
-    chkconfig --del cfengine3
+    test -x /sbin/chkconfig && test -f /etc/init.d/cfengine3 && chkconfig --del cfengine3
 
     #
     # systemd support
@@ -15,7 +15,7 @@ case `os_type` in
     #
     # Clean lock files created by initscript, if any
     #
-    for i in cf-execd cf-serverd cf-monitord cf-hub; do
+    for i in cf-execd cf-serverd cf-monitord cf-hub cf-reactor; do
       rm -f /var/lock/$i /var/lock/subsys/$i
     done
     ;;

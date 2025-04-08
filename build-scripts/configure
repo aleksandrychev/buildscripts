@@ -4,6 +4,7 @@
 . `dirname "$0"`/functions
 . detect-environment
 . compile-options
+. version
 
 case "$PROJECT" in
     community)  NOVA=no   ;;
@@ -14,7 +15,7 @@ esac
 
 P=$BUILDPREFIX
 
-ARGS="--prefix=$P --with-workdir=$P --sysconfdir=/etc --with-openssl=$P --with-pcre=$P --with-init-script"
+ARGS="--prefix=$P --libdir=$P/lib --with-workdir=$P --sysconfdir=/etc --with-openssl=$P --with-pcre2=$P --with-librsync=$P --with-init-script"
 
 if [ $EMBEDDED_DB = lmdb ]
 then
@@ -36,6 +37,14 @@ case "$DEPS" in
     *)          var_append ARGS "--without-libyaml" ;;
 esac
 case "$DEPS" in
+    *librsync*)  var_append ARGS "--with-librsync=$P" ;;
+    *)          var_append ARGS "--without-librsync" ;;
+esac
+case "$DEPS" in
+    *leech*)    var_append ARGS "--with-leech=$P" ;;
+    *)          var_append ARGS "--without-leech" ;;
+esac
+case "$DEPS" in
     *postgresql*) var_append ARGS "--with-postgresql=$P --without-mysql" ;;
     *)            var_append ARGS "--without-sql" ;;
 esac
@@ -53,8 +62,8 @@ case "$DEPS" in
     *)          var_append ARGS "--without-libcurl" ;;
 esac
 case "$ROLE" in
-    hub)   var_append ARGS "--with-cfmod --with-enterprise-api --with-postgresql-hub=$P --with-redis=$P" ;;
-    agent) var_append ARGS "--without-cfmod --without-postgresql-hub --without-redis" ;;
+    hub)   var_append ARGS "--with-cfmod --with-enterprise-api --with-postgresql=$P" ;;
+    agent) var_append ARGS "--without-cfmod --without-postgresql" ;;
     *)     fatal "Unknown ROLE: $ROLE" ;;
 esac
 case "$WITH_SYSTEMD" in
@@ -62,6 +71,10 @@ case "$WITH_SYSTEMD" in
   *)    var_append ARGS "--without-systemd-service" ;;
 esac
 
+# RHEL 8 requires an SELinux policy
+if [ "x$OS" = "xrhel" ] && [ "${VER%\.*}" -gt "7" ]; then
+  var_append ARGS "--with-selinux-policy"
+fi
 
 # Cross-compiling Windows?
 case "$ARCH-${OS_FAMILY}" in
@@ -105,6 +118,12 @@ case "$BUILD_TYPE" in
     exit 42
     ;;
 esac
+
+if [ "x$OS" = "xsolaris" ]
+then
+    export PKG_CONFIG_PATH="$BUILDPREFIX/lib/pkgconfig"
+fi
+
 
 ( cd $BASEDIR/core && env $OPTS CFLAGS="$CFLAGS" ./configure $ARGS )
 

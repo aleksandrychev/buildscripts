@@ -72,7 +72,7 @@ detect_os()
       exit 42;;
   esac
 
-  export OS
+  export OS OS_VERSION
 }
 
 detect_distribution()
@@ -116,16 +116,29 @@ detect_distribution()
       "Red Hat Enterprise Linux Server release "*)
         VER=${REL#Red Hat Enterprise Linux Server release }
         VER=${VER% \(*};
-        case "$VER" in
-          [0-9].[0-9]);;
-          *)
+        if ! echo "$VER" | egrep '^[0-9]+.[0-9]+$' > /dev/null
+        then
           echo "Unknown RHEL Server version: $VER"
-          exit 42;;
-        esac
+          exit 42
+        fi
 
         OS=rhel
         OS_VERSION="$VER"
         ;;
+
+      "Red Hat Enterprise Linux release "*)
+        VER=${REL#Red Hat Enterprise Linux release }
+        VER=${VER% \(*};
+        if ! echo "$VER" | egrep '^[0-9]+.[0-9]+$' > /dev/null
+        then
+          echo "Unknown RHEL Server version: $VER"
+          exit 42
+        fi
+
+        OS=rhel
+        OS_VERSION="$VER"
+        ;;
+
       *)
         echo "Unknown RedHat-like distribution: $REL"
         exit 42;;
@@ -157,6 +170,9 @@ detect_distribution()
         stretch*)
           REL=9.0
           ;;
+        buster*)
+          REL=10.0
+          ;;
         *)
           echo "Unable to detect version of Debian: $REL"
           exit 42;;
@@ -166,6 +182,9 @@ detect_distribution()
     OS=debian
     OS_VERSION="$REL"
   elif [ -f /etc/SuSE-release ]; then
+    # This file is gone starting with suse 13 or something. This whole section
+    # can be removed when support for suse 12 and lower is dropped. I wish to
+    # see that day.
     REL=$(head -n1 /etc/SuSE-release)
     case "$REL" in
       "SUSE Linux Enterprise Server "*)
@@ -188,6 +207,20 @@ detect_distribution()
         echo "Unknown SUSE distribution: $REL"
         exit 42;;
     esac
+  elif [ -f /etc/os-release ]; then
+    # see https://en.opensuse.org/SDB:Find_openSUSE_version for rules of
+    # parsing this file
+    os="$(sh -c ". /etc/os-release; echo \$ID")"
+    ver="$(sh -c ". /etc/os-release; echo \$VERSION_ID")"
+    if [ "$os" = "sles" ]; then
+      OS=sles
+      OS_VERSION="$ver"
+    fi
+    if expr "$os" : "opensuse" >/dev/null; then
+      # can be "opensuse-leap" or "opensuse-tumbleweed"
+      OS=opensuse
+      OS_VERSION="$ver"
+    fi
   fi
 
   if [ -z "$OS" ]; then
@@ -289,7 +322,7 @@ detect_tools()
         fatal "GNU Make not found"
     fi
 
-    if [ "x$OS" = "xaix" ]; then
+    if [ "x$OS" = "xaix" ] && [ "x$OS_VERSION" = "x5.3" ]; then
         RPMBUILD_CMD=rpm
     else
         RPMBUILD_CMD=rpmbuild

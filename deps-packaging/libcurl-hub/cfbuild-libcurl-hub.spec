@@ -1,11 +1,13 @@
+%define curl_version 8.12.1
+
 Summary: CFEngine Build Automation -- libcurl
 Name: cfbuild-libcurl-hub
 Version: %{version}
 Release: 1
-Source: curl-7.54.1.tar.gz
+Source: curl-%{curl_version}.tar.gz
 License: MIT
 Group: Other
-Url: http://example.com/
+Url: https://cfengine.com
 BuildRoot: %{_topdir}/BUILD/%{name}-%{version}-%{release}-buildroot
 
 AutoReqProv: no
@@ -14,22 +16,29 @@ AutoReqProv: no
 
 %prep
 mkdir -p %{_builddir}
-%setup -q -n curl-7.54.1
+%setup -q -n curl-%{curl_version}
+
+# we don't bundle OpenSSL on RHEL 8 (and newer in the future)
+%if %{?rhel}%{!?rhel:0} > 7
+%define ssl_prefix /usr
+%else
+%define ssl_prefix %{prefix}
+%endif
 
 ./configure \
     --with-sysroot=%{prefix} \
-    --with-ssl=%{prefix} \
+    --with-ssl=%{ssl_prefix} \
     --with-zlib=%{prefix} \
     --disable-ldap \
     --disable-ldaps \
+    --disable-ntlm \
     --without-axtls \
     --without-cyassl \
-    --without-darwinssl \
     --without-egd-socket \
     --without-gnutls \
     --without-gssapi \
     --without-libidn \
-    --without-libmetalink \
+    --without-libpsl \
     --without-librtmp \
     --without-libssh2 \
     --without-nghttp2 \
@@ -38,9 +47,9 @@ mkdir -p %{_builddir}
     --without-winidn \
     --without-winssl \
     --prefix=%{prefix} \
-    CPPFLAGS="-I/var/cfengine/include" \
-    LD_LIBRARY_PATH="/var/cfengine/lib" \
-    LD_RUN_PATH="/var/cfengine/lib"
+    CPPFLAGS="-I%{prefix}/include" \
+    LD_LIBRARY_PATH="%{prefix}/lib" \
+    LD_RUN_PATH="%{prefix}/lib"
 
 %build
 
@@ -91,3 +100,9 @@ CFEngine Build Automation -- libcurl
 %prefix/lib/pkgconfig
 
 %changelog
+
+
+
+
+
+

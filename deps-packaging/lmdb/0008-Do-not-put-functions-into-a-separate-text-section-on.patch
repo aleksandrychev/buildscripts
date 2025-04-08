@@ -1,0 +1,36 @@
+From 38c3cf2a2b7fb572c7a75657971e1596355c928d Mon Sep 17 00:00:00 2001
+From: Vratislav Podzimek <vratislav.podzimek@northern.tech>
+Date: Wed, 22 Aug 2018 16:47:04 +0200
+Subject: [PATCH 08/10] Do not put functions into a separate text section on
+ PPC64
+
+Somehow this breaks things horribly and such functions seem to
+collide in address space with 'glibc' functions. Segfaults then
+happen and backtraces are totally weird.(*)
+
+(*) at least on RHEL 6.9, gcc (GCC) 4.4.7 20120313 (Red Hat 4.4.7-23)
+
+Signed-off-by: Vratislav Podzimek <v.podzimek@mykolab.com>
+---
+ libraries/liblmdb/mdb.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/libraries/liblmdb/mdb.c b/libraries/liblmdb/mdb.c
+index efeae67..f5f7ec5 100644
+--- a/libraries/liblmdb/mdb.c
++++ b/libraries/liblmdb/mdb.c
+@@ -204,8 +204,9 @@
+  *  section, and optimizes them for size */
+ #define ESECT __attribute__ ((cold))
+ #else
+-/* On older compilers, use a separate section */
+-# ifdef __GNUC__
++/* On older compilers, use a separate section
++ *  (break things horribly on PPC64 for unknown reasons) */
++# if defined(__GNUC__) && !defined(__PPC64__)
+ #  ifdef __APPLE__
+ #   define      ESECT   __attribute__ ((section("__TEXT,text_env")))
+ #  else
+-- 
+2.21.0 (Apple Git-122)
+

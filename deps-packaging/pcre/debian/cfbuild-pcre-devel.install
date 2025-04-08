@@ -1,4 +1,0 @@
-/var/cfengine/bin/pcre-config
-/var/cfengine/include
-/var/cfengine/lib/*.so
-/var/cfengine/lib/pkgconfig

@@ -1,0 +1,33 @@
+From b7e244830e041f7945e9534dd04880342bda24c7 Mon Sep 17 00:00:00 2001
+From: Dimitrios Apostolou <dimitrios.apostolou@cfengine.com>
+Date: Fri, 13 Jan 2017 19:09:23 +0100
+Subject: [PATCH 07/10] fix warnings
+
+---
+ libraries/liblmdb/lmmgr.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/libraries/liblmdb/lmmgr.c b/libraries/liblmdb/lmmgr.c
+index 1137d8d..ca80bc7 100644
+--- a/libraries/liblmdb/lmmgr.c
++++ b/libraries/liblmdb/lmmgr.c
+@@ -1,6 +1,7 @@
+ /*
+ lmmgr.c : Add, remove or manage the maxreaders value of a given database file
+ */
++#include <stdlib.h>
+ #include <stdio.h>
+ #include <string.h>
+ #include "lmdb.h"
+@@ -135,7 +136,7 @@ int do_stat(char *dbfile)
+ 
+     rc = mdb_env_stat(env, &stat);
+     rc = mdb_env_info(env, &info);
+-    printf("me_maxreaders=%ld\n", info.me_maxreaders);
++    printf("me_maxreaders=%u\n", info.me_maxreaders);
+     mdb_env_close(env);
+     return 0;
+ }
+-- 
+2.21.0 (Apple Git-122)
+

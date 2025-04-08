@@ -2,7 +2,7 @@
 
 # Options
 
-PREFIX=/var/cfengine
+PREFIX=${BUILDPREFIX}
 
 TT=${BUILD_ROOT}/cfbuild-libcurl${PREFIX}
 TTD=${BUILD_ROOT}/cfbuild-libcurl-devel${PREFIX}
@@ -17,19 +17,19 @@ TTD=${BUILD_ROOT}/cfbuild-libcurl-devel${PREFIX}
     --disable-ldaps \
     --without-axtls \
     --without-cyassl \
-    --without-darwinssl \
     --without-egd-socket \
     --without-gnutls \
     --without-gssapi \
     --without-libidn \
-    --without-libmetalink \
+    --without-libpsl \
     --without-librtmp \
     --without-libssh2 \
     --without-nghttp2 \
     --without-nss \
     --without-polarssl \
     --without-winidn \
-    --without-winssl
+    --without-winssl \
+    CPPFLAGS="-DAF_LOCAL=AF_UNIX"
 $MAKE
 
 # Test

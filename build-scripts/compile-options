@@ -30,26 +30,62 @@ fi
 
 export PROJECT
 
+# Detect requirement to use system-provided OpenSSL library.
+# When running manually, you can just export this variable.
+# It's a flag: if it's set to 1 - then we use system OpenSSL.
+# Otherwise, we build it.
+if [ x"$SYSTEM_SSL" = x ]
+then
+    # We don't bundle OpenSSL on RHEL 8 (and newer in the future)
+    if [ "$OS" = "rhel" ] && expr "$OS_VERSION" ">=" "8" >/dev/null
+    then
+        SYSTEM_SSL=1
+    fi
+    # Detect using system ssl when running a Jenkins job
+    if expr x"$label" ":" ".*systemssl" >/dev/null
+    then
+        SYSTEM_SSL=1
+    fi
+fi
+export SYSTEM_SSL
+
 case "$OS_FAMILY" in
   aix)
     # This flag is needed because AIX defaults to producing .a shared libraries,
     # but we need it to make .so libraries. It doesn't work correctly when
     # specified in the Makefile, so we specify it in the environment instead.
     LDFLAGS="-Wl,-brtl"
+
     # AIX needs default RPATH (libpath on AIX) specified as well, otherwise it
     # won't find libc.
     LDFLAGS="$LDFLAGS -L$BUILDPREFIX/lib -Wl,-blibpath:$BUILDPREFIX/lib:/usr/lib:/lib"
     ;;
   hpux)
     LDFLAGS="-L$BUILDPREFIX/lib -Wl,+b$BUILDPREFIX/lib"
+    CC=gcc
+    export CC
     ;;
   mingw)
     LDFLAGS="-static-libgcc -L$BUILDPREFIX/lib"
+    ;;
+  solaris)
+    LDFLAGS="-L$BUILDPREFIX/lib -Wl,-R$BUILDPREFIX/lib"
+    if [ "$(uname -p)" = "sparc" ]; then
+      # ensure 64bit builds on SPARC64
+      CFLAGS="-m64"
+      export CFLAGS
+    fi
     ;;
   *)
     LDFLAGS="-L$BUILDPREFIX/lib -Wl,-R$BUILDPREFIX/lib"
     ;;
 esac
+
+# When we don't bundle OpenSSL, then we need to pull it from /usr/lib64.
+if [ x"$SYSTEM_SSL" = x1 ]
+then
+  LDFLAGS="$LDFLAGS -L/usr/lib64"
+fi
 export LDFLAGS
 
 # For Debian builds, which do not automatically inherit build flags
@@ -64,7 +100,6 @@ EMBEDDED_DB="lmdb"
 ############### Fill in build dependencies in DEPS variable ################
 
 DEPS=
-[ $OS_FAMILY = linux ]  &&  var_append DEPS "lcov"
 [ $OS_FAMILY = mingw ]  &&  var_append DEPS "pthreads-w32 libgnurx"
 
 # libgcc_s.so is needed before we compile any other dependency
@@ -73,9 +108,14 @@ case "$OS_FAMILY" in
     solaris|aix)  var_append DEPS "libgcc" ;;
 esac
 
-# FIXME: Why do we need zlib?
-# ANSWER: Openssl uses it optionally, TODO DISABLE
-var_append DEPS "zlib $EMBEDDED_DB openssl pcre"
+var_append DEPS "$EMBEDDED_DB pcre2"
+
+if ! [ x"$SYSTEM_SSL" = x1 ]
+then
+  # FIXME: Why do we need zlib?
+  # ANSWER: Openssl uses it optionally, TODO DISABLE
+  var_append DEPS "zlib openssl"
+fi
 
 # libsasl needed for solaris
 case "$OS_FAMILY" in
@@ -88,10 +128,17 @@ case "$OS_FAMILY" in
 esac
 
 var_append DEPS "libxml2 libyaml"
+var_append DEPS "diffutils"
+var_append DEPS "librsync"
 
 # LDAP functions in the agent
+# and LDAP authentication functionality in Mission Portal
 case "$PROJECT" in
     nova)  var_append DEPS "openldap"
+esac
+
+case "$PROJECT" in
+    nova)  var_append DEPS "leech"
 esac
 
 # libacl & libattr - not for the exotics (linux only?)
@@ -165,9 +212,9 @@ export ROLE
 case "$ROLE" in
     # HUB-ONLY dependencies
     hub)
-        var_append DEPS "libmcrypt libcurl-hub"
-        var_append DEPS "apr apr-util apache git rsync"
-        var_append DEPS "postgresql-hub php redis"
+        var_append DEPS "libcurl-hub"
+        var_append DEPS "nghttp2 libexpat apr apr-util apache git rsync"
+        var_append DEPS "postgresql php"
         ;;
     # AGENT-ONLY dependencies
     agent)

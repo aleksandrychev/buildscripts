@@ -1,11 +1,13 @@
+%define lmdb_version 0.9.33
+
 Summary: CFEngine Build Automation -- lmdb
 Name: cfbuild-lmdb
 Version: %{version}
 Release: 1
-Source0: LMDB_0.9.21.tar.gz
+Source0: openldap-LMDB_%{lmdb_version}.tar.gz
 License: OpenLDAP
 Group: Other
-Url: http://symas.com/mdb
+Url: https://cfengine.com
 BuildRoot: %{_topdir}/BUILD/%{name}-%{version}-%{release}-buildroot
 
 AutoReqProv: no
@@ -13,7 +15,14 @@ AutoReqProv: no
 Patch0: mdb.patch
 
 %define prefix %{buildprefix}
-%define srcdir lmdb-LMDB_0.9.21/libraries/liblmdb
+%define srcdir openldap-LMDB_%{lmdb_version}/libraries/liblmdb
+
+%if %{?with_debugsym}%{!?with_debugsym:0}
+%define debug_package %{nil}
+%define cflags CFLAGS="-ggdb3"
+%else
+%define cflags CFLAGS=""
+%endif
 
 %ifarch %ix86
 %define lbits %{nil}
@@ -54,13 +63,13 @@ if [ -z $MAKE ]; then
   export MAKE=$MAKE_PATH
 fi
 
-./configure --prefix=%{prefix}
+%{cflags} ./configure --prefix=%{prefix} --libdir=%{buildprefix}/lib
 $MAKE
 
 %install
 rm -rf ${RPM_BUILD_ROOT}
 $MAKE DESTDIR=${RPM_BUILD_ROOT} install
-rm -f ${RPM_BUILD_ROOT}/var/cfengine/lib/liblmdb.la
+rm -f ${RPM_BUILD_ROOT}%{prefix}/lib/liblmdb.la
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -84,6 +93,8 @@ CFEngine Build Automation -- lmdb -- development files
 %dir %{prefix}/bin
 %{prefix}/bin/mdb_stat
 %{prefix}/bin/mdb_copy
+%{prefix}/bin/mdb_dump
+%{prefix}/bin/mdb_load
 %{prefix}/bin/lmdump
 %{prefix}/bin/lmmgr
 
@@ -97,3 +108,5 @@ CFEngine Build Automation -- lmdb -- development files
 %{prefix}/include/*.h
 
 %changelog
+
+

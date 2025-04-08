@@ -40,13 +40,8 @@ echo
 echo "========================= Building RPM for: $PKGNAME =========================="
 echo
 
-if [ $SYS = "AIX" ]; then
-  case "$PKGNAME" in
-    openldap)
-      SPEC="$P/cfbuild-$PKGNAME-aix.spec";;
-    *)
-      SPEC="$P/cfbuild-$PKGNAME.spec";;
-  esac
+if [ "$SYS" = "AIX" ] && [ -f "$P/cfbuild-$PKGNAME-aix.spec" ]; then
+  SPEC="$P/cfbuild-$PKGNAME-aix.spec"
 else
   SPEC="$P/cfbuild-$PKGNAME.spec"
 fi
@@ -101,12 +96,17 @@ esac
 
 case "$DEBUGSYM" in
   yes)
-    RPMBUILD_OPTIONS="$RPMBUILD_OPTIONS --define 'with_debugsym 1'";;
+    RPMBUILD_OPTIONS="$RPMBUILD_OPTIONS --define 'with_debugsym 1' --define '__strip /bin/true'";;
   no)
     RPMBUILD_OPTIONS="$RPMBUILD_OPTIONS --define 'with_debugsym 0'";;
   *)
     fatal "Unknown debugsym option: $DEBUGSYM";;
 esac
+
+
+if [ "$OS" = "rhel" ] && [ "$PKGNAME" = "git" ]; then
+  export RPM_BUILD_NCPUS=1
+fi
 
 # eval and double quoting is needed to separate args,
 # example cmd --define 'a b':

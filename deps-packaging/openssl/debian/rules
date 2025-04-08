@@ -14,8 +14,10 @@ build-stamp:
 
 	echo ==================== BUILD_TYPE is $$BUILD_TYPE ====================
 
-	patch -p1 < honor-LDFLAGS.patch
+	test -d $(PREFIX) || ( sudo mkdir $(PREFIX) && sudo chmod 777 $(PREFIX) )
+	mkdir -p $(PREFIX)/include
 
+	GLOBAL_CONFIG_FLAGS=`cat config_flags_$$ROLE.txt` ;\
 	DEBUG_CONFIG_FLAGS= ;\
 	DEBUG_CFLAGS= ;\
 	if [ $$BUILD_TYPE = "DEBUG" ] ;\
@@ -24,10 +26,21 @@ build-stamp:
 		DEBUG_CFLAGS="-g2 -O1 -fno-omit-frame-pointer" ;\
 	fi ;\
 	\
-	./config shared  no-idea no-rc5 no-ssl2 no-ssl3  no-dtls no-psk no-srp \
-		$$DEBUG_CONFIG_FLAGS \
-                --prefix=$(PREFIX) \
-		$$DEBUG_CFLAGS
+	HACK_FLAGS= ;\
+	if [ $$OS = debian ]  &&  [ `echo $$OS_VERSION | cut -d. -f1` = 4 ]  ;\
+	then \
+	    HACK_FLAGS=-D_GNU_SOURCE  ;\
+	fi ;\
+	\
+	./config $$GLOBAL_CONFIG_FLAGS \
+	    $$DEBUG_CONFIG_FLAGS \
+	    --prefix=$(PREFIX) \
+	    $$HACK_FLAGS   \
+	    $$DEBUG_CFLAGS \
+	    $$LDFLAGS \
+	    --libdir=lib
+
+	$$PERL configdata.pm --dump
 
 	# Remove -O3 and -fomit-frame-pointer from debug and quick builds
 	if [ $$BUILD_TYPE = "DEBUG" ] ;\
@@ -50,14 +63,14 @@ install: build
 	dh_clean -k
 	dh_installdirs
 
-	$(MAKE) install_sw INSTALL_PREFIX=$(CURDIR)/debian/tmp
+	$(MAKE) install_sw DESTDIR=$(CURDIR)/debian/tmp
+	$(MAKE) install_ssldirs DESTDIR=$(CURDIR)/debian/tmp
 
 	rm -f $(CURDIR)/debian/tmp$(PREFIX)/bin/c_rehash
 
 	rm -rf $(CURDIR)/debian/tmp$(PREFIX)/lib/libssl.a
 	rm -rf $(CURDIR)/debian/tmp$(PREFIX)/lib/libcrypto.a
-	rm -rf $(CURDIR)/debian/tmp$(PREFIX)/lib/engines
-	rm -rf $(CURDIR)/debian/tmp$(PREFIX)/lib/pkgconfig/openssl.pc
+	rm -rf $(CURDIR)/debian/tmp$(PREFIX)/lib/cmake/OpenSSL
 
 binary-indep: build install
 

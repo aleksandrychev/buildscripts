@@ -26,9 +26,22 @@ if [ -f /usr/lib64/php5/extensions/cfmod.so ]; then
     rm -f /usr/lib64/php5/extensions/cfengine-enterprise-api.so
 fi
 
-for i in cf-agent cf-key cf-promises cf-execd cf-serverd cf-monitord cf-net;
+for i in cf-agent cf-key cf-secret cf-promises cf-execd cf-serverd cf-monitord cf-net cf-check cf-support;
 do
     rm -f /usr/local/sbin/$i || true
 done
+
+# unload SELinux policy if not upgrading
+if ! is_upgrade; then
+  if [ `os_type` = "redhat" ] &&
+     command -v semodule >/dev/null &&
+     semodule -l | grep cfengine-enterprise >/dev/null;
+  then
+    semodule -n -r cfengine-enterprise
+    if /usr/sbin/selinuxenabled; then
+      /usr/sbin/load_policy
+    fi
+  fi
+fi
 
 exit 0

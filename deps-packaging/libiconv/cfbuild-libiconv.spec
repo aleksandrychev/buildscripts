@@ -2,10 +2,10 @@ Summary: CFEngine Build Automation -- libiconv
 Name: cfbuild-libiconv
 Version: %{version}
 Release: 1
-Source0: libiconv-1.15.tar.gz
+Source0: libiconv-1.18.tar.gz
 License: MIT
 Group: Other
-Url: http://www.gnu.org/software/libiconv/
+Url: https://cfengine.com
 BuildRoot: %{_topdir}/BUILD/%{name}-%{version}-%{release}-buildroot
 
 AutoReqProv: no
@@ -14,7 +14,7 @@ AutoReqProv: no
 
 %prep
 mkdir -p %{_builddir}
-%setup -q -n libiconv-1.15
+%setup -q -n libiconv-1.18
 
 ./configure --prefix=%{prefix} --disable-shared --enable-static
 
@@ -52,7 +52,6 @@ CFEngine Build Automation -- libiconv -- development files
 
 %dir %prefix/lib
 %prefix/lib/*.a
-%prefix/lib/charset.alias
 
 %files devel
 %defattr(-,root,root)
@@ -61,6 +60,6 @@ CFEngine Build Automation -- libiconv -- development files
 
 %dir %prefix/lib
 %prefix/lib/*.a
-%prefix/lib/charset.alias
 
 %changelog
+

@@ -1,8 +1,37 @@
-#!/bin/sh -x
+#!/bin/bash -x
 
 . `dirname "$0"`/functions
 . detect-environment
 . compile-options
+. version
+
+get_GH_PR_info() {
+    # Args:
+    #   $1 - repo identifier ("project/repo")
+    #   $2 - PR identifier (the PR number)
+    # Env:
+    #   $GITHUB_STATUS_TOKEN - token for GitHub authentication
+    # Prints:
+    #   $REPO_ID $PR_ID $PR_STATUSES_URL
+    #   Where:
+    #     $PR_STATUSES_URL - GH API URL to set PR's statuses
+    # Returns:
+    #   0 - success, 1 - error
+    if [ -z "$1" ] || [ -z "$2" ] || [ -z "$GITHUB_STATUS_TOKEN" ]; then return 1; fi
+
+    if which jq > /dev/null; then
+        URL=$(curl -k -H "Authorization: token $GITHUB_STATUS_TOKEN" https://api.github.com/repos/$1/pulls/$2 |
+                  jq ".statuses_url" | tr -d '"')
+        status=$?
+    else
+        URL=$(curl -k -H "Authorization: token $GITHUB_STATUS_TOKEN" https://api.github.com/repos/$1/pulls/$2 |
+                  grep "statuses_url" | head -n1 | sed -r 's/\s+"statuses_url": "([^"]+)",/\1/')
+        status=$?
+    fi
+
+    echo "$1 $2 $URL"
+    return $status
+}
 
 
 mkdir -p $BASEDIR/output/tarballs
@@ -11,7 +40,7 @@ cd $BASEDIR/core
 rm cfengine-3.*.tar.gz || true
 git rev-parse HEAD > $BASEDIR/output/core-commitID
 # Configure in order to run "make dist", deleted later.
-./configure --with-tokyocabinet=/usr
+./configure -C
 make dist
 mv cfengine-3.*.tar.gz $BASEDIR/output/tarballs/
 make distclean
@@ -30,3 +59,85 @@ cd $BASEDIR/output/tarballs
 sha256sum *.tar.gz > sha256sums.txt
 CKSUM=`sum sha256sums.txt | cut -d ' ' -f 1`
 mv sha256sums.txt sha256sums.$CKSUM.txt
+
+(
+if test -f "$BASEDIR/mission-portal/public/scripts/package.json"; then
+  cd $BASEDIR/mission-portal/public/scripts
+  # display node & npm versions
+  npm --version
+  node --version
+  # install dependencies from npmjs
+  npm ci --prefix $BASEDIR/mission-portal/public/scripts/
+  # build react components
+  npm run build --prefix $BASEDIR/mission-portal/public/scripts/
+  # remove the packages specified in devDependencies
+  npm prune --omit=dev --prefix $BASEDIR/mission-portal/public/scripts/
+
+fi
+)
+
+(
+if test -f "$BASEDIR/mission-portal/composer.json"; then
+  cd $BASEDIR/mission-portal
+  # install PHP dependencies from composer
+  php /usr/bin/composer.phar install --no-dev
+fi
+)
+
+(
+if test -f "$BASEDIR/nova/api/http/composer.json"; then
+  cd $BASEDIR/nova/api/http
+  # install PHP dependencies from composer
+  php /usr/bin/composer.phar install --no-dev --ignore-platform-reqs
+fi
+)
+
+(
+if test -f "$BASEDIR/mission-portal/vendor/tecnickcom/tcpdf/tools/tcpdf_addfont.php"; then
+  cd $BASEDIR/mission-portal
+  # The ability to use visibility modifiers on constants was added in PHP 7.1
+  # However, the default apt repository of the bootstrap host currently
+  # provides PHP 7.0. Thus, we need to remove the visibility modifiers from
+  # this file to avoid syntax errors. See ENT-12565. We can remove this line
+  # once the default apt repository provides a version >= 7.1
+  sed -i 's/protected const/const/g' ./vendor/tecnickcom/tcpdf/include/tcpdf_static.php
+
+  # Add Red Hat Text font to TCPDF library that we use in Mission Portal for PDF generation
+  php ./vendor/tecnickcom/tcpdf/tools/tcpdf_addfont.php -i ./public/themes/default/bootstrap/cfengine/font/rht/RedHatText-Regular.ttf
+  php ./vendor/tecnickcom/tcpdf/tools/tcpdf_addfont.php -i ./public/themes/default/bootstrap/cfengine/font/rht/RedHatText-Bold.ttf
+  php ./vendor/tecnickcom/tcpdf/tools/tcpdf_addfont.php -i ./public/themes/default/bootstrap/cfengine/font/rht/RedHatText-Italic.ttf
+fi
+)
+
+(
+if test -f "$BASEDIR/mission-portal/public/themes/default/bootstrap/cfengine_theme.less"; then
+  cd $BASEDIR/mission-portal/public/themes/default/bootstrap
+  npx -p less lessc --compress ./cfengine_theme.less ./compiled/css/cfengine.less.css
+fi
+)
+
+(
+if test -f "$BASEDIR/mission-portal/ldap/composer.json"; then
+  cd $BASEDIR/mission-portal/ldap
+  # install PHP dependencies from composer
+  php /usr/bin/composer.phar install --no-dev
+fi
+)
+
+# the rest of the script is not really critical
+set +e
+
+# Get information about PRs among the used revisions.
+# These PRs will have to be notified of build progress.
+for repo in buildscripts core masterfiles enterprise nova mission-portal; do
+  rev_param_name="$(echo $repo | tr '[:lower:]-' '[:upper:]_')_REV"
+  revision="$(echo ${!rev_param_name})" || continue   # dereference
+
+  # remove "origin/" (if any)
+  revision="${revision##origin/}"
+  if expr "$revision" : "pull/" >/dev/null; then
+	repo_spec="cfengine/$repo"
+    pr_nr="$(echo $revision | cut -d/ -f2)"
+	get_GH_PR_info "$repo_spec" "$pr_nr" >> $BASEDIR/output/PRs
+  fi
+done
